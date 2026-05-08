@@ -1,23 +1,25 @@
 #!/usr/bin/env bash
-# MediCore deploy — run on the production host (/var/www/medicore).
+# ScalaMedic Demo deploy — runs on the crm box (the demo lives at
+# /var/www/medicore-demo, port 3004, DB medicore_demo). Forked from
+# the production deploy.sh; differences are at the top: APP_DIR,
+# PM2_PROC, HEALTH_URL all point at the demo. WhatsApp sidecar
+# block removed — that's prod-only.
 #
-# Ordering: regenerate Prisma client → apply any pending migrations →
-# production build → pm2 restart → health check.
+# Ordering: regenerate Prisma client → apply pending migrations →
+# build → pm2 restart → health check.
 #
-# Why a script: piping `npm run build` through tail in an ad-hoc SSH
-# one-liner swallows the build's non-zero exit code (pipefail off by
-# default), which has twice let pm2 restart onto a stale/broken .next
-# and produce HTTP 502s. `set -euo pipefail` at the top makes any step
-# failing abort the deploy before pm2 touches anything.
+# `set -euo pipefail` at the top means any step failing aborts the
+# deploy before pm2 touches anything (npm run build's exit code
+# would otherwise be swallowed by `| tail`).
 #
-# Usage (from local machine after rsync'ing the repo):
-#   ssh root@medical.scalamatic.com 'bash /var/www/medicore/scripts/deploy.sh'
+# Usage (from local machine after pushing to GitHub):
+#   ssh root@crm.drnakhodas.com 'cd /var/www/medicore-demo && git pull && bash scripts/deploy.sh'
 
 set -euo pipefail
 
-APP_DIR="${APP_DIR:-/var/www/medicore}"
-PM2_PROC="${PM2_PROC:-medicore}"
-HEALTH_URL="${HEALTH_URL:-https://crm.drnakhodas.com/api/health}"
+APP_DIR="${APP_DIR:-/var/www/medicore-demo}"
+PM2_PROC="${PM2_PROC:-medicore-demo}"
+HEALTH_URL="${HEALTH_URL:-https://demo.scalamedic.com/api/health}"
 HEALTH_RETRIES="${HEALTH_RETRIES:-10}"
 
 log()  { printf '\033[36m▶ %s\033[0m\n' "$*"; }
@@ -44,45 +46,12 @@ log "pm2 restart $PM2_PROC"
 pm2 restart "$PM2_PROC" --update-env | tail -3
 ok "pm2 restart issued"
 
-# WhatsApp sidecar — install deps + build + restart pm2 entry. The
-# sidecar lives in $APP_DIR/whatsapp-server with its own package.json.
-# Skip silently if the directory hasn't landed on the box yet (first
-# deploy after adding the feature won't have it pre-provisioned).
-if [ -d "$APP_DIR/whatsapp-server" ]; then
-  log "WhatsApp sidecar"
-  pushd "$APP_DIR/whatsapp-server" >/dev/null
-  if [ -f package.json ]; then
-    # Sidecar needs tsc, so include dev deps. The sidecar's deps are
-    # minimal (4 packages) so size isn't a concern.
-    if [ ! -d node_modules ] || [ package.json -nt node_modules/.package-lock.json ]; then
-      npm install --no-audit --no-fund 2>&1 | tail -10 || true
-    fi
-    npx tsc 2>&1 | tail -10 || true
-  fi
-  popd >/dev/null
-
-  # Source env from main app's .env so WHATSAPP_SERVICE_TOKEN +
-  # WA_AUTH_DIR are visible to pm2 when it spawns/refreshes the
-  # sidecar. The sidecar is a plain Node process and won't read .env
-  # on its own.
-  if [ -f "$APP_DIR/.env" ]; then
-    set -a
-    # shellcheck disable=SC1091
-    . "$APP_DIR/.env"
-    set +a
-  fi
-
-  if pm2 describe medicore-whatsapp >/dev/null 2>&1; then
-    pm2 restart medicore-whatsapp --update-env | tail -3
-  else
-    pm2 start "$APP_DIR/whatsapp-server/dist/index.js" \
-      --name medicore-whatsapp \
-      --update-env \
-      --time 2>&1 | tail -3 || true
-    pm2 save >/dev/null 2>&1 || true
-  fi
-  ok "WhatsApp sidecar refreshed"
-fi
+# WhatsApp sidecar block intentionally removed for the demo —
+# the prod codebase has it because nakhoda runs a real Baileys
+# session on port 3003 (pm2 name "medicore-whatsapp"). The demo
+# is sales-only, no patient messaging, and we must NOT restart
+# prod's sidecar from here. If the demo ever needs WhatsApp,
+# add a separate pm2 entry like "medicore-whatsapp-demo".
 
 log "Health check ($HEALTH_URL)"
 for i in $(seq 1 "$HEALTH_RETRIES"); do
@@ -94,11 +63,10 @@ for i in $(seq 1 "$HEALTH_RETRIES"); do
   [ "$i" = "$HEALTH_RETRIES" ] && fail "Health check never returned healthy after ${HEALTH_RETRIES} tries"
 done
 
-# Mirror call removed 2026-05-06 — crm.drnakhodas.com is now the
-# source of truth (deploys land there directly, no more drop-and-
-# reload from medical). medical.scalamatic.com is kept alive as a
-# static snapshot only; running deploy.sh on medical no longer
-# touches crm. To re-enable a one-way mirror, restore
-# scripts/mirror-to-crm.sh and add a guarded call here.
+# This is the demo's deploy script. It does NOT touch prod
+# (/var/www/medicore, pm2 medicore, port 3002). If you ever want a
+# one-way "snapshot demo from prod" again, add a guarded pg_dump |
+# pg_restore here — but be deliberate about it; the whole point of
+# this fork is that demo and prod can diverge freely.
 
 ok "Deploy complete"

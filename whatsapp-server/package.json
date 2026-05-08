@@ -1,0 +1,25 @@
+{
+  "name": "medicore-whatsapp-server",
+  "version": "1.0.0",
+  "description": "Sidecar Node service that holds a long-lived WhatsApp Web session via Baileys, exposes a small HTTP API for the MediCore main app to call (QR / status / send / disconnect). Runs as a pm2 sibling process; MediCore proxies to it over localhost.",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx watch index.ts"
+  },
+  "dependencies": {
+    "@hapi/boom": "^10.0.1",
+    "baileys": "^7.0.0-rc.4",
+    "express": "^4.21.0",
+    "pino": "^9.0.0",
+    "qrcode": "^1.5.3"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.0.0",
+    "@types/qrcode": "^1.5.5",
+    "tsx": "^4.7.0",
+    "typescript": "^5.4.0"
+  }
+}

@@ -1,0 +1,2814 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// =============================================
+// ENUMS
+// =============================================
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  DOCTOR
+  RECEPTIONIST
+  BILLING
+  CALL_CENTER
+  ASSISTANT
+  /// Performs aesthetic treatments (laser, peels, facials, injectables
+  /// supervised by a doctor). Sits between ASSISTANT and DOCTOR — has
+  /// hands-on procedure access, no prescribing.
+  AESTHETICIAN
+  /// Equipment operator (laser machine, IV chairs, etc). View-mostly
+  /// — sees the schedule + assigned patients but doesn't edit clinical
+  /// records.
+  OPERATOR
+  /// Self-service patient account. Pinned to the lowest tier of the
+  /// role hierarchy; explicitly excluded from any staff-only API
+  /// path. Read access scoped to their own Patient record (linked
+  /// via Patient.userId) plus the Phase-3 companion-app surfaces.
+  PATIENT
+}
+
+/// Status of a patient invite. PENDING is freshly issued; ACCEPTED
+/// has been redeemed (the User row exists and Patient.userId is set);
+/// EXPIRED / REVOKED are terminal states that can't be redeemed.
+enum PatientInviteStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  REVOKED
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum AppointmentType {
+  CONSULTATION
+  PROCEDURE
+  FOLLOW_UP
+  REVIEW
+  EMERGENCY
+}
+
+enum AppointmentStatus {
+  SCHEDULED
+  CONFIRMED
+  CHECKED_IN
+  WAITING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+  RESCHEDULED
+}
+
+enum Priority {
+  NORMAL
+  URGENT
+  EMERGENCY
+}
+
+enum InvoiceStatus {
+  DRAFT
+  PENDING
+  PAID
+  PARTIAL
+  OVERDUE
+  CANCELLED
+  REFUNDED
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED
+}
+
+enum PaymentMethodType {
+  CASH
+  CARD
+  CHEQUE
+  BANK_TRANSFER
+  DIGITAL_WALLET
+  INSURANCE
+  PACKAGE_DEDUCTION
+}
+
+enum PaymentStatusType {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum LeadStatusType {
+  NEW
+  CONTACTED
+  INTERESTED
+  BOOKED
+  NOT_INTERESTED
+  FOLLOW_UP
+}
+
+enum LeadSourceType {
+  CALL
+  WALK_IN
+  WEBSITE
+  SOCIAL_MEDIA
+  REFERRAL
+}
+
+enum TreatmentCategory {
+  LASER
+  CHEMICAL_PEEL
+  FACIAL
+  INJECTABLE
+  SURGICAL
+  OTHER
+}
+
+// Tax bucket on treatments — drives the per-line tax rate at invoice
+// time (MEDICAL 3%, COSMETIC 8%, SLIMMING 8%). Consultation lines (no
+// treatmentId) tax at 3% in code; see lib/tax-rates.ts.
+enum TaxCategory {
+  MEDICAL
+  COSMETIC
+  SLIMMING
+}
+
+enum LabTestStatus {
+  REQUESTED
+  SAMPLE_COLLECTED
+  PROCESSING
+  COMPLETED
+  CANCELLED
+}
+
+enum DocumentType {
+  REPORT
+  IMAGE
+  CONSENT
+  PRESCRIPTION
+  LAB_RESULT
+  BEFORE_AFTER
+  OTHER
+}
+
+enum RoomType {
+  CONSULTATION
+  PROCEDURE
+  WAITING
+  RECOVERY
+}
+
+enum RoomStatus {
+  AVAILABLE
+  OCCUPIED
+  CLEANING
+  MAINTENANCE
+}
+
+enum FollowUpStatus {
+  PENDING
+  COMPLETED
+  MISSED
+  CANCELLED
+}
+
+enum Severity {
+  MILD
+  MODERATE
+  SEVERE
+}
+
+enum ConditionStatus {
+  ACTIVE
+  RESOLVED
+  CHRONIC
+}
+
+enum PackageStatus {
+  ACTIVE
+  EXPIRED
+  CANCELLED
+}
+
+enum TranscriptionStatus {
+  RECORDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum NotificationType {
+  APPOINTMENT
+  BILLING
+  LAB
+  FOLLOW_UP
+  SYSTEM
+  ALERT
+}
+
+enum CommChannel {
+  CALL
+  SMS
+  EMAIL
+  WHATSAPP
+}
+
+enum Direction {
+  INBOUND
+  OUTBOUND
+}
+
+enum CallOutcome {
+  BOOKED
+  CALLBACK
+  NOT_INTERESTED
+  NO_ANSWER
+  INFO_PROVIDED
+}
+
+enum AllocationStatus {
+  ACTIVE
+  DISCHARGED
+}
+
+enum WorkflowStage {
+  INQUIRY
+  BOOKED
+  CHECKIN
+  WAITING
+  CONSULT
+  DIAGNOSIS
+  TREATMENT
+  PRESCRIPTION
+  BILLING
+  PAYMENT
+  CHECKOUT
+  FOLLOWUP
+  HISTORY_UPDATE
+}
+
+enum SkinTypeScale {
+  TYPE_I
+  TYPE_II
+  TYPE_III
+  TYPE_IV
+  TYPE_V
+  TYPE_VI
+}
+
+enum DayOfWeek {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
+enum RefundStatus {
+  REQUESTED
+  APPROVED
+  PROCESSED
+  REJECTED
+}
+
+enum ConsentStatus {
+  PENDING
+  SIGNED
+  DECLINED
+  WITHDRAWN
+  EXPIRED
+}
+
+// v58 — Insurance claim lifecycle. Linear-ish with one branch:
+// DENIED → APPEALED loops back to IN_REVIEW. CANCELLED is a
+// clinic-side withdrawal at any pre-decision step.
+enum InsuranceClaimStatus {
+  DRAFT
+  SUBMITTED
+  IN_REVIEW
+  APPROVED
+  PARTIAL
+  DENIED
+  PAID
+  APPEALED
+  CANCELLED
+}
+
+enum ProductCategory {
+  CLEANSER
+  MOISTURIZER
+  SUNSCREEN
+  SERUM
+  TREATMENT
+  SUPPLEMENT
+  HAIR
+  SKIN
+  TOOL
+  OTHER
+}
+
+enum LeaveType {
+  VACATION
+  SICK
+  PERSONAL
+  CONFERENCE
+  TRAINING
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+// =============================================
+// MODELS
+// =============================================
+
+// ---- Multi-Branch ----
+
+model Branch {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String   @db.VarChar(120)
+  // v53: branch code uniqueness is now per-tenant (was global). Two
+  // tenants can both have a "MAIN" branch. The composite index lives
+  // in @@unique below.
+  code      String   @db.VarChar(10) // e.g. "MAIN", "DT", "WS"
+  address   String   @db.Text
+  phone     String   @db.VarChar(32)
+  email     String   @db.VarChar(120)
+  timezone  String   @default("Asia/Karachi") @db.VarChar(40)
+  isActive  Boolean  @default(true)
+  // Tenant scoping. Single-tenant deployments backfill to one
+  // Tenant row; multi-tenant deployments (Phase 3 expansion) use
+  // this to isolate clinic chains. Nullable on the schema because
+  // Prisma doesn't yet support set-NOT-NULL-after-backfill in a
+  // single migration; the v36 migration backfills + enforces NOT
+  // NULL via raw SQL.
+  tenantId  String   @db.Uuid
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users        User[]
+  patients     Patient[]
+  appointments Appointment[]
+  rooms        Room[]
+  invoices     Invoice[]
+  insuranceClaims InsuranceClaim[]
+  leads        Lead[]
+  products     Product[]
+  blockedSlots BlockedSlot[]
+  // Many-to-many catalog availability — one row per (treatment|package, branch)
+  // pair. Backfilled to "every treatment available at every branch" by v24,
+  // admins can narrow per-item via the catalog UI.
+  treatments   TreatmentBranch[]
+  packages     PackageBranch[]
+
+  pettyCashExpenses PettyCashExpense[]
+  dailyClosings     DailyClosing[]
+  procedureProtocols ProcedureProtocol[]
+
+  @@unique([tenantId, code])
+  @@index([isActive])
+  @@index([tenantId])
+  @@map("branches")
+}
+
+// Multi-tenant root. Today the platform deploys with exactly one
+// row (Nakhoda Skin Institute); the model exists so future clinic-
+// chain or SaaS deployments can isolate per tenant without a
+// painful retrofit. Tenant-scoping is enforced via Branch.tenantId
+// (every branch belongs to one tenant) — clinical data inherits
+// scope through the branch.
+enum TenantPlan {
+  FREE
+  PRO
+  ENTERPRISE
+}
+
+model Tenant {
+  id              String   @id @default(uuid()) @db.Uuid
+  // URL-safe slug used to resolve a tenant by hostname/path in
+  // multi-tenant deployments. Globally unique.
+  slug            String   @unique @db.VarChar(60)
+  // Display names. `name` is the marketing name (used in UI
+  // headers, browser tabs); `legalName` is the registered entity
+  // name (used on invoices); `shortName` is the compact sidebar
+  // label.
+  name            String   @db.VarChar(150)
+  legalName       String?  @db.VarChar(200)
+  shortName       String?  @db.VarChar(60)
+  // SaaS plan tier. Drives feature gates: requireFeature() and the
+  // client-side useFeature() hook both look up FEATURES_BY_PLAN
+  // (lib/feature-gate.ts) keyed by this. ENTERPRISE is the default
+  // for the existing single-tenant deployment so nothing breaks on
+  // rollout — new tenants would default to FREE.
+  plan            TenantPlan @default(ENTERPRISE)
+  // Optional plan expiry. Null = active indefinitely (useful for
+  // paid customers before a billing system is wired up). When set
+  // and in the past, the feature gate degrades the tenant to FREE.
+  planValidUntil  DateTime? @db.Timestamptz(6)
+  // Brand assets. Stored as paths/URLs; logoUrl is the canonical
+  // wordmark used across surfaces, faviconUrl is the browser-tab
+  // icon. Null means "use the platform default".
+  logoUrl         String?  @db.Text
+  faviconUrl      String?  @db.Text
+  // OTPAuth issuer name shown in authenticator apps. Defaults to
+  // the platform name when null.
+  mfaIssuer       String?  @db.VarChar(60)
+  // Footer credit on patient-facing artifacts (receipts, etc.).
+  // Defaults to "Powered by ScalaMedic" platform-wide.
+  poweredByLine   String?  @db.VarChar(80)
+  // Brand color hint (Tailwind palette name or hex). Future-use
+  // for theme overrides; today the UI ignores it.
+  primaryColor    String?  @db.VarChar(20)
+  isActive        Boolean  @default(true)
+  // Demo tenant flag (v52). When true, the workspace is treated as a
+  // disposable sandbox: a top-banner warns "Demo workspace", the
+  // /api/admin/demo/reset endpoint is allowed to wipe + regenerate
+  // its data, and the login page can offer a one-click "Try demo"
+  // sign-in. Real tenants must keep this false.
+  isDemo          Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  branches        Branch[]
+  users           User[]
+  patients        Patient[]
+  appointments    Appointment[]
+  invoices        Invoice[]
+  insuranceClaims InsuranceClaim[]
+  payers          Payer[]
+  denialReasons   DenialReason[]
+  procedureProtocols ProcedureProtocol[]
+  collaborationThreads CollaborationThread[] @relation("CollaborationThreadTenant")
+  hostnames       TenantHostname[]
+
+  @@index([isActive])
+  @@map("tenants")
+}
+
+// Hostnames that route to this tenant. The Next.js middleware
+// resolves the incoming request's `Host` header against this
+// table; matched requests get a `X-Resolved-Tenant-Id` header
+// threaded into downstream routes (lib/tenant.ts reads it).
+//
+// Single-tenant deployments need at least one row per active
+// tenant; the migration seeds the existing nakhoda tenant with
+// its production + dev hostnames. Multi-tenant SaaS expansion
+// adds more rows without code changes.
+model TenantHostname {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @db.Uuid
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  // Lower-cased FQDN. Globally unique — two tenants can never
+  // claim the same hostname. Length capped at 120; longer FQDNs
+  // are rare and can be aliased.
+  hostname  String   @unique @db.VarChar(120)
+  // Exactly one primary hostname per tenant, enforced via the
+  // partial unique index in v51's migration. The primary is the
+  // one referenced in invitation links and patient-facing emails.
+  isPrimary Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([tenantId])
+  @@map("tenant_hostnames")
+}
+
+// ---- Auth & Access ----
+
+model User {
+  id              String    @id @default(uuid()) @db.Uuid
+  // No longer globally unique — multi-tenant SaaS allows the same
+  // email to exist as different users in different tenants.
+  // Composite uniqueness on (tenantId, email) enforced via
+  // @@unique below.
+  email           String    @db.VarChar(180)
+  passwordHash    String    @db.VarChar(255)
+  name            String    @db.VarChar(120)
+  phone           String?   @db.VarChar(32)
+  avatar          String?   @db.Text
+  role            UserRole
+  branchId        String    @db.Uuid
+  branch          Branch    @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  // Tenant convenience FK — duplicates branch.tenantId for fast
+  // queries. Kept consistent by application code (set on create
+  // from branch.tenantId; cannot drift since v36 enforces a
+  // CHECK that user.tenantId = branch.tenantId).
+  tenantId        String    @db.Uuid
+  tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  speciality      String?   @db.VarChar(100) // for doctors
+  licenseNumber   String?   @unique @db.VarChar(60) // for doctors — PMC license #
+  // Default consultation fee in PKR. Used by the check-in pay-then-proceed
+  // flow as the first invoice line item; receptionist can override at
+  // collection time. Null = no default set yet.
+  consultationFee Decimal?  @db.Decimal(10, 2)
+  isActive        Boolean   @default(true)
+  lastLoginAt     DateTime?
+  // When this admin last opened /admin/updates. Drives the "unread"
+  // badge: anything (review, booking, message) created strictly after
+  // this timestamp is counted as unread for the sidebar pip. NULL =
+  // never opened, treat everything as unread.
+  lastUpdatesSeenAt DateTime?
+  // MFA (TOTP). The secret is stored encrypted-at-rest using
+  // MFA_SECRET_KEY (AES-256-GCM, see lib/mfa-crypto.ts) so a DB
+  // dump alone doesn't yield code-generation capability. Both
+  // ciphertext and iv are base64 strings.
+  mfaEnabled              Boolean @default(false)
+  mfaSecretCiphertext     String? @db.Text
+  mfaSecretIv             String? @db.VarChar(32)
+  mfaSecretAuthTag        String? @db.VarChar(32)
+  mfaEnrolledAt           DateTime? @db.Timestamptz(6)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  permissions         Permission[]
+  auditLogs           AuditLog[]
+  assignedPatients    Patient[]          @relation("AssignedDoctor")
+  doctorAppointments  Appointment[]      @relation("DoctorAppointments")
+  createdAppointments Appointment[]      @relation("CreatedAppointments")
+  consultationNotes   ConsultationNote[]
+  procedures          Procedure[]
+  prescriptions       Prescription[]
+  labTestsOrdered     LabTest[]          @relation("DoctorLabTests")
+  documents           PatientDocument[]
+  photoScoresCreated  PhotoScore[]
+  invoicesCreated     Invoice[]
+  insuranceClaimsCreated InsuranceClaim[] @relation("InsuranceClaimCreator")
+  paymentsProcessed   Payment[]
+  assignedLeads       Lead[]
+  callLogs            CallLog[]
+  communications      CommunicationLog[]
+  followUps           FollowUp[]         @relation("DoctorFollowUps")
+  transcriptions      AITranscription[]
+  notifications       Notification[]
+  triageRecords       Triage[]
+  schedules           DoctorSchedule[]
+  refundsApproved     Refund[]           @relation("RefundsApproved")
+  refundsProcessed    Refund[]           @relation("RefundsProcessed")
+  leaves              DoctorLeave[]      @relation("DoctorLeaves")
+  leavesApproved      DoctorLeave[]      @relation("DoctorLeaveApprover")
+  roomAllocations     RoomAllocation[]   @relation("RoomAllocations")
+  waitlistAssigned    Waitlist[]         @relation("WaitlistDoctor")
+  blockedSlots        BlockedSlot[]      @relation("BlockedSlots")
+  blockedSlotsCreated BlockedSlot[]      @relation("BlockedSlotCreator")
+  pettyCashRecorded   PettyCashExpense[] @relation("PettyCashRecorded")
+  dailyClosingsClosed DailyClosing[]     @relation("DailyClosingClosedBy")
+  permissionOverridesCreated RolePermissionOverride[] @relation("RolePermissionOverrideCreator")
+  qrTokensCreated     QrToken[]
+  qrScans             QrScanLog[]
+  websiteBookingOverridesUpdated WebsiteBookingOverride[] @relation("WebsiteBookingOverrideUpdater")
+  websiteMessageOverridesUpdated WebsiteMessageOverride[] @relation("WebsiteMessageOverrideUpdater")
+  consultationNotesSigned       ConsultationNote[]            @relation("ConsultationNoteSigner")
+  consultationNoteRevisions     ConsultationNoteRevision[]    @relation("ConsultationNoteRevisionAuthor")
+  aiSuggestionsForMe            AISuggestion[]                @relation("AISuggestionDoctor")
+  aiSuggestionsDecided          AISuggestion[]                @relation("AISuggestionDecider")
+  // Self-service patient account: at most one Patient row points at
+  // this user (via Patient.userId). Optional inverse for queries.
+  patient                       Patient?                      @relation("PatientUser")
+  invitesSent                   PatientInvite[]               @relation("PatientInviteCreator")
+  procedureConsentsWitnessed    Procedure[]                   @relation("ProcedureConsentWitness")
+  procedureProtocolsCreated     ProcedureProtocol[]           @relation("ProcedureProtocolCreator")
+  collaborationThreadsCreated   CollaborationThread[]         @relation("CollaborationThreadCreator")
+  collaborationCommentsAuthored CollaborationComment[]        @relation("CollaborationCommentAuthor")
+  collaborationMentions         CollaborationMention[]        @relation("CollaborationMentionTarget")
+  revokedSessions               RevokedSession[]
+  labTestResultsEntered         LabTestResult[]               @relation("LabTestResultEnterer")
+
+  @@unique([tenantId, email])
+  @@index([role])
+  @@index([branchId])
+  @@index([tenantId])
+  @@index([lastLoginAt]) // "active staff this week" dashboard
+  @@index([role, branchId]) // staff filter by role within a branch
+  @@map("users")
+}
+
+model Permission {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  module    String   @db.VarChar(60) // e.g. "PATIENT", "APPOINTMENT"
+  action    String   @db.VarChar(20) // VIEW, CREATE, EDIT, DELETE, EXPORT
+  granted   Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, module, action])
+  @@index([userId])
+  @@index([module]) // admin "all permissions for module X" lookups
+  @@map("permissions")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  // Nullable: system jobs / webhook events have no real user, and a deleted
+  // user shouldn't blow up audit history (FK becomes SetNull instead of Restrict).
+  userId     String?  @db.Uuid
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action     String   @db.VarChar(30)
+  module     String   @db.VarChar(60)
+  entityType String   @db.VarChar(60)
+  entityId   String   @db.VarChar(60)
+  details    Json?
+  ipAddress  String?  @db.VarChar(45)
+  userAgent  String?  @db.VarChar(300)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([userId])
+  @@index([module])
+  @@index([createdAt])
+  @@index([entityType, entityId])
+  @@index([action]) // filter all events of one action type (e.g. DEACTIVATED)
+  @@map("audit_logs")
+}
+
+// ---- Patient Core ----
+
+model Patient {
+  id               String          @id @default(uuid()) @db.Uuid
+  // v53: patientCode is now per-tenant unique (was globally unique).
+  // Composite index lives in @@unique below.
+  patientCode      String          @db.VarChar(20) // PT-0001
+  firstName        String          @db.VarChar(60)
+  middleName       String?         @db.VarChar(60)
+  lastName         String          @db.VarChar(60)
+  // email uniqueness is enforced via a partial unique index defined in the v11
+  // migration: UNIQUE (email) WHERE email IS NOT NULL AND deletedAt IS NULL.
+  // Prisma can't model partial uniques, so we keep the column non-unique here
+  // and rely on the raw index. phone is intentionally not unique — family
+  // members commonly share numbers in PK clinics.
+  email            String?         @db.VarChar(180)
+  phone            String?         @db.VarChar(32)
+  // Optional — receptionists frequently register a walk-in / urgent patient
+  // without confirmed DOB and fill it in later. The two existing CHECKs
+  // (not-future from v14, >= 1900-01-01 from v19) are NULL-safe.
+  dateOfBirth      DateTime?       @db.Date
+  gender           Gender
+  nationality      String?         @db.VarChar(60)
+  address          String?         @db.Text
+  city             String?         @db.VarChar(80)
+  emergencyContact String?         @db.VarChar(120)
+  emergencyPhone   String?         @db.VarChar(32)
+  bloodType        String?         @db.VarChar(5)
+  skinType         SkinTypeScale?
+  branchId         String          @db.Uuid
+  branch           Branch          @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  // v53: denormalized tenant FK (mirrors users.tenantId). Trigger
+  // patients_enforce_branch_tenant_trg keeps this == branch.tenantId.
+  tenantId         String          @db.Uuid
+  tenant           Tenant          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  assignedDoctorId String?         @db.Uuid
+  assignedDoctor   User?           @relation("AssignedDoctor", fields: [assignedDoctorId], references: [id], onDelete: SetNull)
+  profileImage     String?         @db.Text
+  notes            String?         @db.Text
+  source           LeadSourceType? // how they found the clinic
+  consentGiven     Boolean         @default(false)
+  isVip            Boolean         @default(false)
+  isActive         Boolean         @default(true)
+  deletedAt        DateTime? // soft delete
+  // Self-service link. When non-null this Patient has accepted an
+  // invite and can log in via the PATIENT-role User pointed to here.
+  // Unique because at most one Patient per User. Nullable because
+  // the vast majority of patients today never sign up.
+  userId           String?         @unique @db.Uuid
+  user             User?           @relation("PatientUser", fields: [userId], references: [id], onDelete: SetNull)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  allergies         PatientAllergy[]
+  medications       PatientMedication[]
+  medicalHistory    MedicalHistory[]
+  skinHistory       SkinHistory[]
+  insurance         Insurance[]
+  appointments      Appointment[]
+  consultationNotes ConsultationNote[]
+  procedures        Procedure[]
+  prescriptions     Prescription[]
+  labTests          LabTest[]
+  documents         PatientDocument[]
+  photoScores       PhotoScore[]
+  invoices          Invoice[]
+  insuranceClaims   InsuranceClaim[]
+  patientPackages   PatientPackage[]
+  communications    CommunicationLog[]
+  followUps         FollowUp[]
+  transcriptions    AITranscription[]
+  aiSuggestions     AISuggestion[]      @relation("AISuggestionPatient")
+  triageRecords     Triage[]
+  callLogs          CallLog[]
+  convertedLeads    Lead[]
+  consentForms      ConsentForm[]
+  tags              PatientTag[]
+  roomAllocations   RoomAllocation[]
+  waitlistEntries   Waitlist[]
+  invites           PatientInvite[]
+  collaborationThreads CollaborationThread[] @relation("CollaborationThreadPatient")
+
+  // v53: patientCode is per-tenant unique. Email partial unique
+  // (active rows only, scoped by tenant) is enforced in raw SQL by
+  // the v53 migration — Prisma can't model partial uniques.
+  @@unique([tenantId, patientCode])
+  @@index([phone])
+  @@index([branchId])
+  @@index([tenantId])
+  @@index([assignedDoctorId])
+  @@index([lastName, firstName])
+  @@index([isActive, branchId])
+  @@index([isActive, deletedAt])
+  @@index([createdAt]) // "new patients this week" reports
+  @@index([gender]) // demographic reports
+  @@index([skinType]) // skin-category demographic reports
+  @@map("patients")
+}
+
+// Invite token issued by an admin so a Patient can self-register a
+// User account and link it to their existing Patient row. The token
+// is a long random string (sha256 of crypto random bytes) and is
+// hashed on disk — only the redeem endpoint compares against it.
+//
+// Lifecycle:
+//   PENDING → ACCEPTED  (patient claimed it, User created)
+//   PENDING → EXPIRED   (background job past expiresAt)
+//   PENDING → REVOKED   (admin cancelled it)
+// Terminal states never transition again.
+model PatientInvite {
+  id          String              @id @default(uuid()) @db.Uuid
+  patientId   String              @db.Uuid
+  patient     Patient             @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  // Hashed token (sha256 hex) — the plaintext is shown to the
+  // admin once at creation time, then never stored.
+  tokenHash   String              @unique @db.VarChar(64)
+  status      PatientInviteStatus @default(PENDING)
+  // 7 days from issuance by default. Past this point the redeem
+  // endpoint refuses regardless of status.
+  expiresAt   DateTime            @db.Timestamptz(6)
+  // Channel hint for the audit trail; the actual SMS/email send
+  // happens outside this row.
+  channel     String?             @db.VarChar(20) // "sms" / "email" / "whatsapp"
+  // Who created the invite + who redeemed it.
+  createdById String              @db.Uuid
+  createdBy   User                @relation("PatientInviteCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  acceptedAt  DateTime?           @db.Timestamptz(6)
+  acceptedUserId String?          @db.Uuid
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  @@index([patientId])
+  @@index([status])
+  @@index([expiresAt])
+  @@map("patient_invites")
+}
+
+model PatientAllergy {
+  id        String   @id @default(uuid()) @db.Uuid
+  patientId String   @db.Uuid
+  patient   Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  allergen  String   @db.VarChar(120)
+  severity  Severity
+  reaction  String?  @db.VarChar(200)
+  notes     String?  @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([patientId])
+  @@map("patient_allergies")
+}
+
+model PatientMedication {
+  id         String    @id @default(uuid()) @db.Uuid
+  patientId  String    @db.Uuid
+  patient    Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  name       String    @db.VarChar(150)
+  dosage     String?   @db.VarChar(80)
+  frequency  String?   @db.VarChar(80)
+  prescriber String?   @db.VarChar(120)
+  startDate  DateTime?
+  endDate    DateTime?
+  isActive   Boolean   @default(true)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([patientId])
+  @@map("patient_medications")
+}
+
+model MedicalHistory {
+  id            String          @id @default(uuid()) @db.Uuid
+  patientId     String          @db.Uuid
+  patient       Patient         @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  condition     String          @db.VarChar(200)
+  diagnosedDate DateTime?       @db.Date
+  status        ConditionStatus
+  notes         String?         @db.Text
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@index([patientId])
+  @@index([patientId, status])
+  @@map("medical_histories")
+}
+
+model SkinHistory {
+  id               String    @id @default(uuid()) @db.Uuid
+  patientId        String    @db.Uuid
+  patient          Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  condition        String    @db.VarChar(200)
+  affectedArea     String    @db.VarChar(200)
+  severity         Severity
+  onsetDate        DateTime? @db.Date
+  treatmentHistory String?   @db.Text
+  notes            String?   @db.Text
+  images           String[]
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  @@index([patientId])
+  @@index([patientId, severity])
+  @@map("skin_histories")
+}
+
+model Insurance {
+  id           String    @id @default(uuid()) @db.Uuid
+  patientId    String    @db.Uuid
+  patient      Patient   @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  /// Free-text payer name. Kept for legacy + free-form entries
+  /// (international policies, niche payers not yet in the master).
+  /// New entries should also set payerId — the Payer row carries
+  /// the standardized code, billing email, etc.
+  provider     String    @db.VarChar(120)
+  /// v59 — Optional FK to the tenant's payer master (Payer model).
+  /// Nullable on rollout so existing free-text rows keep working;
+  /// the patient-insurance form upserts both fields going forward.
+  payerId      String?   @db.Uuid
+  payer        Payer?    @relation(fields: [payerId], references: [id], onDelete: SetNull)
+  policyNumber String    @db.VarChar(60)
+  coverageType String?   @db.VarChar(40)
+  copayAmount  Decimal?  @db.Decimal(10, 2)
+  expiryDate   DateTime? @db.Date
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  claims       InsuranceClaim[]
+
+  @@index([patientId])
+  @@index([policyNumber])
+  @@index([expiryDate]) // "expiring this month" dashboard
+  @@index([payerId])
+  @@map("insurances")
+}
+
+// v60 — Per-tenant master of common denial reasons. Free-text
+// `denialReason` on InsuranceClaim still works for one-off cases;
+// `denialReasonCode` (FK below) snaps to a curated taxonomy so
+// reports can group "all claims denied for missing pre-auth" without
+// fuzzy text matching.
+model DenialReason {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @db.Uuid
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  /// Per-tenant unique short code (e.g. "AUTH-MISSING").
+  code      String   @db.VarChar(40)
+  description String @db.VarChar(200)
+  /// Surface high-frequency reasons at the top of the picker without
+  /// requiring a search query — same convention as ICD10Code.
+  isCommon  Boolean  @default(false)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  claims    InsuranceClaim[] @relation("InsuranceClaimDenialReason")
+
+  @@unique([tenantId, code])
+  @@index([tenantId, isCommon, isActive])
+  @@map("denial_reasons")
+}
+
+// v59 — Per-tenant payer (insurance company) master list. Replaces
+// the free-text Insurance.provider field for new entries; legacy
+// rows keep their string until edited. Standardized codes (the
+// payer's own filing identifier, e.g. "EFU-LIFE-HC") drive payer
+// reports and per-payer claim analytics.
+model Payer {
+  id                    String   @id @default(uuid()) @db.Uuid
+  tenantId              String   @db.Uuid
+  tenant                Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name                  String   @db.VarChar(120)
+  /// Short stable identifier for filings. Per-tenant unique. Caps,
+  /// alphanumerics, hyphens, max 40 chars.
+  code                  String   @db.VarChar(40)
+  /// Optional contact email for general queries.
+  contactEmail          String?  @db.VarChar(180)
+  /// Where claims should be submitted (often a different mailbox
+  /// than general contact).
+  claimSubmissionEmail  String?  @db.VarChar(180)
+  contactPhone          String?  @db.VarChar(32)
+  notes                 String?  @db.Text
+  isActive              Boolean  @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  insurances            Insurance[]
+
+  @@unique([tenantId, code])
+  @@unique([tenantId, name])
+  @@index([tenantId, isActive])
+  @@map("payers")
+}
+
+// ---- Scheduling ----
+
+model Appointment {
+  id               String            @id @default(uuid()) @db.Uuid
+  // v53: appointmentCode is per-tenant unique (composite below).
+  appointmentCode  String            @db.VarChar(20) // APT-0001
+  patientId        String            @db.Uuid
+  patient          Patient           @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  doctorId         String            @db.Uuid
+  doctor           User              @relation("DoctorAppointments", fields: [doctorId], references: [id], onDelete: Restrict)
+  branchId         String            @db.Uuid
+  branch           Branch            @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  // v53: denormalized tenant FK; trigger keeps it == branch.tenantId.
+  tenantId         String            @db.Uuid
+  tenant           Tenant            @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  roomId           String?           @db.Uuid
+  room             Room?             @relation(fields: [roomId], references: [id], onDelete: Restrict)
+  date             DateTime          @db.Date
+  startTime        String            @db.VarChar(5) // "09:00"
+  endTime          String            @db.VarChar(5) // "09:30"
+  durationMinutes  Int               @default(30)
+  type             AppointmentType
+  // Optional treatment selected at booking. Carries forward to the
+  // check-in invoice as a line item (basePrice from the treatment).
+  treatmentId      String?           @db.Uuid
+  treatment        Treatment?        @relation("AppointmentTreatment", fields: [treatmentId], references: [id], onDelete: SetNull)
+  status           AppointmentStatus @default(SCHEDULED)
+  notes            String?           @db.Text
+  priority         Priority          @default(NORMAL)
+  waitlistPosition Int?
+  checkinTime      DateTime?         @db.Timestamptz(6)
+  checkoutTime     DateTime?         @db.Timestamptz(6)
+  workflowStage    WorkflowStage     @default(BOOKED)
+  cancellationNote String?           @db.Text
+  createdById      String            @db.Uuid
+  createdBy        User              @relation("CreatedAppointments", fields: [createdById], references: [id], onDelete: Restrict)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  consultationNotes ConsultationNote[]
+  procedures        Procedure[]
+  prescriptions     Prescription[]
+  labTests          LabTest[]
+  invoices          Invoice[]
+  followUps         FollowUp[]
+  transcriptions    AITranscription[]
+  aiSuggestions     AISuggestion[]      @relation("AISuggestionAppointment")
+  triageRecords     Triage[]
+  consentForms      ConsentForm[]
+  waitlistBookings  Waitlist[]
+  qrTokens          QrToken[]
+
+  // [patientId], [doctorId], [branchId] dropped — each is a redundant prefix
+  // of a larger composite below.
+  @@unique([tenantId, appointmentCode])
+  @@index([tenantId])
+  @@index([date])
+  @@index([status])
+  @@index([doctorId, date]) // doctor daily schedule
+  @@index([branchId, date]) // branch daily schedule
+  @@index([patientId, date]) // patient history lookup
+  @@index([patientId, status]) // dashboard "active appointments per patient"
+  @@index([workflowStage]) // workflow queue queries
+  @@index([roomId])
+  @@index([createdById])
+  @@index([treatmentId])
+  @@index([checkinTime]) // "checked in today" reception filter
+  @@index([date, status]) // daily status breakdown reports
+  @@map("appointments")
+}
+
+model Room {
+  id          String     @id @default(uuid()) @db.Uuid
+  branchId    String     @db.Uuid
+  branch      Branch     @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  name        String     @db.VarChar(80)
+  number      String?    @db.VarChar(10)
+  floor       Int?
+  type        RoomType
+  status      RoomStatus @default(AVAILABLE)
+  isAvailable Boolean    @default(true)
+  capacity    Int        @default(1)
+  equipment   String?    @db.Text // what equipment is in this room
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  appointments     Appointment[]
+  roomAllocations  RoomAllocation[]
+  blockedSlotRooms BlockedSlot[]    @relation("BlockedSlotRoom")
+
+  // [branchId] dropped — covered by composite [branchId, type] below.
+  @@index([status])
+  @@index([branchId, type])
+  @@map("rooms")
+}
+
+model RoomAllocation {
+  id            String           @id @default(uuid()) @db.Uuid
+  patientId     String           @db.Uuid
+  patient       Patient          @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  roomId        String           @db.Uuid
+  room          Room             @relation(fields: [roomId], references: [id], onDelete: Restrict)
+  doctorId      String           @db.Uuid
+  doctor        User             @relation("RoomAllocations", fields: [doctorId], references: [id], onDelete: Restrict)
+  bedNumber     String?          @db.VarChar(10)
+  admissionDate DateTime         @db.Date
+  dischargeDate DateTime?        @db.Date
+  status        AllocationStatus @default(ACTIVE)
+  notes         String?          @db.Text
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  // [roomId] dropped — covered by composite [roomId, status] below.
+  @@index([patientId])
+  @@index([status])
+  @@index([roomId, status])
+  @@index([doctorId])
+  @@index([admissionDate]) // current-admissions / "today's intakes" widget
+  @@index([dischargeDate]) // discharge reports
+  @@map("room_allocations")
+}
+
+// ---- Clinical ----
+
+model ConsultationNote {
+  id                String      @id @default(uuid()) @db.Uuid
+  appointmentId     String      @db.Uuid
+  appointment       Appointment @relation(fields: [appointmentId], references: [id], onDelete: Restrict)
+  patientId         String      @db.Uuid
+  patient           Patient     @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  doctorId          String      @db.Uuid
+  doctor            User        @relation(fields: [doctorId], references: [id], onDelete: Restrict)
+  chiefComplaint    String?     @db.Text
+  symptoms          String?     @db.Text
+  examination       String?     @db.Text
+  skinAssessment    String?     @db.Text // dermatology specific
+  affectedAreas     String[] // ["Face", "Neck", ...]
+  conditionSeverity Severity?
+  diagnosis         String?     @db.Text
+  differentialDx    String?     @db.Text // differential diagnosis
+  // v55 — Structured diagnosis codes. Array of ICD-10 codes (e.g.
+  // ["L70.0", "L81.1"]); first element is the primary diagnosis.
+  // The free-text `diagnosis` field stays for narrative — codes
+  // sit alongside it for analytics and claim-coding workflows.
+  icd10Codes        String[]    @default([])
+  treatmentPlan     String?     @db.Text
+  advice            String?     @db.Text
+  internalNotes     String?     @db.Text // not visible to patient
+  followUpDate      DateTime?   @db.Date
+  followUpNotes     String?     @db.Text
+  isSigned          Boolean     @default(false)
+  signedAt          DateTime?
+  // E-signature integrity primitives. signedById captures who signed
+  // (separate from doctorId; clinics with locum cover may have a
+  // signer who isn't the original doctor). signedContentHash binds
+  // the signature to the exact content at sign time — a SHA-256 of
+  // the canonicalized clinical fields. amendmentReason is required
+  // when an already-signed note is changed (and clears signature).
+  signedById        String?     @db.Uuid
+  signedBy          User?       @relation("ConsultationNoteSigner", fields: [signedById], references: [id], onDelete: SetNull)
+  signedContentHash String?     @db.VarChar(64) // SHA-256 hex
+  amendmentReason   String?     @db.Text
+  revisionCount     Int         @default(0)
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  revisions         ConsultationNoteRevision[] @relation("ConsultationNoteRevisions")
+  collaborationThreads CollaborationThread[] @relation("CollaborationThreadNote")
+
+  @@index([patientId])
+  @@index([appointmentId])
+  @@index([doctorId, createdAt])
+  @@index([appointmentId, createdAt])
+  @@index([signedById])
+  @@map("consultation_notes")
+}
+
+// Immutable revisions of a consultation note. Every edit creates a
+// row capturing the prior state; the live row in `consultation_notes`
+// always represents the current state. Signatures bind to the
+// content at signing time (see signedContentHash on the parent), so
+// a tamper at the DB tier becomes detectable by re-hashing.
+model ConsultationNoteRevision {
+  id                String    @id @default(uuid()) @db.Uuid
+  consultationNoteId String   @db.Uuid
+  consultationNote  ConsultationNote @relation("ConsultationNoteRevisions", fields: [consultationNoteId], references: [id], onDelete: Cascade)
+  revisionNumber    Int       // monotonic per consultationNoteId, starting at 1
+  // Frozen JSON snapshot of the note's clinical fields at the time
+  // this revision was created. Read-only; never updated.
+  snapshot          Json
+  // Whether the note was signed *as captured in this revision*
+  // (i.e. at the moment we snapshotted prior state). Signatures may
+  // not survive into subsequent revisions if an amendment cleared
+  // them.
+  wasSigned         Boolean   @default(false)
+  signedAtSnapshot  DateTime? @db.Timestamptz(6)
+  signedByIdSnapshot String?  @db.Uuid
+  signedContentHashSnapshot String? @db.VarChar(64)
+  // Why this revision was created. Mandatory amendments to a signed
+  // note must explain themselves; auto-revisions on first save can
+  // omit it.
+  amendmentReason   String?   @db.Text
+  // Who authored the change that produced this revision (i.e. who
+  // edited or signed). Nullable on legacy data; required for new rows
+  // via the route layer.
+  authorId          String?   @db.Uuid
+  author            User?     @relation("ConsultationNoteRevisionAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+  createdAt         DateTime  @default(now())
+
+  @@unique([consultationNoteId, revisionNumber])
+  @@index([consultationNoteId])
+  @@index([authorId])
+  @@map("consultation_note_revisions")
+}
+
+model Treatment {
+  id                String            @id @default(uuid()) @db.Uuid
+  name              String            @db.VarChar(150)
+  code              String?           @unique @db.VarChar(20) // TRT-001
+  category          TreatmentCategory
+  // Tax bucket for invoicing — see TaxCategory enum + lib/tax-rates.ts.
+  // Backfilled to MEDICAL on existing rows; admin can reclassify.
+  taxCategory       TaxCategory       @default(MEDICAL)
+  description       String?           @db.Text
+  duration          Int // minutes
+  basePrice         Decimal           @db.Decimal(10, 2)
+  preInstructions   String?           @db.Text
+  postInstructions  String?           @db.Text
+  contraindications String?           @db.Text
+  isActive          Boolean           @default(true)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  procedures        Procedure[]
+  packageTreatments PackageTreatment[]
+  invoiceItems      InvoiceItem[]
+  // Booked appointments that picked this treatment at booking time.
+  appointments      Appointment[]      @relation("AppointmentTreatment")
+  // Branch availability — empty = available everywhere is NOT the rule;
+  // every treatment must have at least one row (UI enforces). v24 backfill
+  // seeded each treatment with every branch.
+  branches          TreatmentBranch[]
+  protocols         ProcedureProtocol[] @relation("TreatmentProtocols")
+
+  @@index([category])
+  @@index([category, isActive]) // "active LASER" / "active FACIAL" lists
+  @@index([taxCategory])
+  @@map("treatments")
+}
+
+model Procedure {
+  id            String      @id @default(uuid()) @db.Uuid
+  appointmentId String      @db.Uuid
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Restrict)
+  patientId     String      @db.Uuid
+  patient       Patient     @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  doctorId      String      @db.Uuid
+  doctor        User        @relation(fields: [doctorId], references: [id], onDelete: Restrict)
+  treatmentId   String      @db.Uuid
+  treatment     Treatment   @relation(fields: [treatmentId], references: [id], onDelete: Restrict)
+  areasTreated  String[]
+  settings      Json? // laser power, peel %, etc.
+  notes         String?     @db.Text
+  outcome       String?     @db.Text
+  complications String?     @db.Text
+  beforeImages  String[]
+  afterImages   String[]
+  consentSigned Boolean     @default(false)
+  // E-consent provenance. Captured when the procedure is started:
+  // signedAt = wall time the staff member witnessed the patient
+  // signing; signedById = the witnessing staff member's user id.
+  // Both required when consentSigned=true (see CHECK in v40).
+  consentSignedAt   DateTime? @db.Timestamptz(6)
+  consentSignedById String?   @db.Uuid
+  consentSignedBy   User?     @relation("ProcedureConsentWitness", fields: [consentSignedById], references: [id], onDelete: SetNull)
+  // Optional protocol binding. When a procedure is initiated from
+  // a ProcedureProtocol, the protocolId records which template was
+  // used and protocolSnapshot freezes the protocol's contents at
+  // that moment — so future protocol edits don't rewrite history.
+  protocolId       String?            @db.Uuid
+  protocol         ProcedureProtocol? @relation(fields: [protocolId], references: [id], onDelete: SetNull)
+  protocolSnapshot Json?
+  performedAt   DateTime?   @db.Timestamptz(6)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([patientId])
+  @@index([treatmentId])
+  @@index([performedAt])
+  @@index([appointmentId])
+  @@index([protocolId])
+  @@index([consentSignedById])
+  @@index([doctorId])
+  @@index([patientId, performedAt(sort: Desc)]) // patient procedure timeline
+  collaborationThreads CollaborationThread[] @relation("CollaborationThreadProcedure")
+
+  @@index([doctorId, performedAt(sort: Desc)])  // doctor's recent work
+  @@index([consentSigned]) // consent-compliance audit
+  @@map("procedures")
+}
+
+// Reusable template for in-clinic procedures (HydraFacial, PRP,
+// Carbon Laser, peels, hair restoration, etc.). When a Procedure
+// is initiated from a protocol, the consent text, expected photo
+// angles, machine-setting defaults, and aftercare guidance pre-
+// fill — and the protocol payload at that moment is frozen onto
+// the Procedure as `protocolSnapshot` so future template edits
+// don't rewrite the historical record.
+//
+// Tenant-scoped (each clinic chain has its own protocols). Branch
+// is optional — null means "available across every branch in the
+// tenant".
+model ProcedureProtocol {
+  id          String   @id @default(uuid()) @db.Uuid
+  tenantId    String   @db.Uuid
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  branchId    String?  @db.Uuid
+  branch      Branch?  @relation(fields: [branchId], references: [id], onDelete: SetNull)
+
+  // Display name shown in pickers (e.g. "HydraFacial — Standard").
+  name        String   @db.VarChar(120)
+  // Free-form description for staff training.
+  description String?  @db.Text
+
+  // Optional canonical Treatment this protocol attaches to. Setting
+  // it lets the Procedure form auto-suggest this protocol when the
+  // doctor picks the matching treatment. SetNull on treatment delete
+  // — the protocol survives but unbinds.
+  treatmentId String?  @db.Uuid
+  treatment   Treatment? @relation("TreatmentProtocols", fields: [treatmentId], references: [id], onDelete: SetNull)
+
+  // Patient-facing consent text, rendered on the consent screen
+  // before the patient's signature. Markdown allowed; the UI
+  // converts it.
+  consentTemplate String? @db.Text
+
+  // Photo angles the staff is expected to capture. Examples:
+  // ["Face front", "Left profile", "Right profile"]. Empty array
+  // is allowed (no photos required).
+  requiredBeforePhotos String[]
+  requiredAfterPhotos  String[]
+
+  // Default machine settings. Free-shape JSON keyed by setting
+  // name (e.g. {"laserPower": 12, "spotSize": 5}). The UI presents
+  // them as editable defaults; whatever the operator actually uses
+  // is captured on the Procedure.
+  machineSettings Json?
+
+  // Printed aftercare instructions the patient takes home. Same
+  // markdown convention as consentTemplate.
+  aftercareInstructions String? @db.Text
+
+  // Recommended follow-up booking offset. Null means no built-in
+  // suggestion — staff can still book one manually.
+  suggestedFollowUpDays Int?
+
+  // Optional Rx kit reference — points at a key from the doctor-
+  // app's RX_TEMPLATES map. Loose coupling on purpose; renaming
+  // a kit just orphans the link rather than breaking the row.
+  rxKitName     String? @db.VarChar(60)
+
+  // Estimated wall time the procedure typically takes. Drives
+  // appointment booking durations and queue ETA forecasts.
+  estimatedDurationMinutes Int?
+
+  // Bumped on every edit. Old Procedure rows retain their frozen
+  // snapshot regardless; this is just a human-readable revision
+  // marker on the live row.
+  version     Int      @default(1)
+  isActive    Boolean  @default(true)
+
+  createdById String   @db.Uuid
+  createdBy   User     @relation("ProcedureProtocolCreator", fields: [createdById], references: [id], onDelete: Restrict)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  procedures  Procedure[]
+
+  @@index([tenantId])
+  @@index([branchId])
+  @@index([treatmentId])
+  @@index([isActive, tenantId])
+  @@map("procedure_protocols")
+}
+
+model Prescription {
+  id            String       @id @default(uuid()) @db.Uuid
+  patientId     String       @db.Uuid
+  patient       Patient      @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  doctorId      String       @db.Uuid
+  doctor        User         @relation(fields: [doctorId], references: [id], onDelete: Restrict)
+  // Optional FK detaches on appointment deletion so prescription history
+  // survives cleanup of the source appointment row.
+  appointmentId String?      @db.Uuid
+  appointment   Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  notes         String?      @db.Text
+  isActive      Boolean      @default(true)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  items PrescriptionItem[]
+
+  @@index([patientId])
+  @@index([doctorId])
+  @@index([appointmentId])
+  @@index([doctorId, createdAt])
+  @@index([patientId, createdAt(sort: Desc)]) // patient Rx timeline
+  @@map("prescriptions")
+}
+
+model PrescriptionItem {
+  id             String       @id @default(uuid()) @db.Uuid
+  prescriptionId String       @db.Uuid
+  prescription   Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+  medicineName   String       @db.VarChar(200)
+  dosage         String?      @db.VarChar(100)
+  frequency      String?      @db.VarChar(60) // OD, BD, TDS, QDS
+  duration       String?      @db.VarChar(60)
+  route          String?      @db.VarChar(40) // Topical, Oral, etc.
+  instructions   String?      @db.Text
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([prescriptionId])
+  @@map("prescription_items")
+}
+
+model LabTest {
+  id            String        @id @default(uuid()) @db.Uuid
+  patientId     String        @db.Uuid
+  patient       Patient       @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  doctorId      String        @db.Uuid
+  doctor        User          @relation("DoctorLabTests", fields: [doctorId], references: [id], onDelete: Restrict)
+  // Structured per-analyte rows live in lab_test_results (one row
+  // per analyte). The legacy `results` JSON / `notes` text fields
+  // stay for unstructured / narrative results.
+  resultRows    LabTestResult[]
+  appointmentId String?       @db.Uuid
+  appointment   Appointment?  @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  testName      String        @db.VarChar(150)
+  testCode      String?       @db.VarChar(20)
+  status        LabTestStatus @default(REQUESTED)
+  priority      Priority      @default(NORMAL)
+  results       Json?
+  technician    String?       @db.VarChar(120)
+  collectedAt   DateTime?     @db.Timestamptz(6)
+  completedAt   DateTime?     @db.Timestamptz(6)
+  notes         String?       @db.Text
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([patientId])
+  @@index([status])
+  @@index([doctorId, createdAt])
+  @@index([appointmentId])
+  @@index([priority])     // "urgent first" lab queue sort
+  @@index([completedAt])  // "completed in last 7 days" analytics
+  @@index([patientId, createdAt(sort: Desc)]) // patient lab timeline
+  @@map("lab_tests")
+}
+
+// Structured per-analyte result rows. One LabTest can have many
+// (e.g. a CBC has Hb, WBC, Platelets, MCV…). The fields support
+// both numeric results (Hb = 12.5 g/dL, range 12.0–16.0) and
+// categorical ones (HBsAg = "Negative", reference = "Negative").
+//
+// `isAbnormal` is set explicitly by the lab tech / route logic
+// rather than recomputed at read time — labs sometimes flag based
+// on context (delta vs prior, age/sex-specific ranges) that the
+// numeric range alone doesn't capture.
+model LabTestResult {
+  id          String   @id @default(uuid()) @db.Uuid
+  labTestId   String   @db.Uuid
+  labTest     LabTest  @relation(fields: [labTestId], references: [id], onDelete: Cascade)
+
+  /// Display name of the analyte. Free-text so the lab tech can
+  /// type "Hemoglobin" or "Hb" — UI sorts on `displayOrder` not
+  /// alphabetical so panels render in clinically expected order.
+  analyte     String   @db.VarChar(120)
+  /// Optional code (LOINC, local catalog, NABL panel id…). Loose
+  /// type — different markets use different code systems.
+  code        String?  @db.VarChar(40)
+
+  /// What the lab tech entered, verbatim. Always present so the
+  /// printed report renders even when valueNumeric is null
+  /// (categorical / qualitative results).
+  value       String   @db.VarChar(60)
+  /// Parsed numeric value when applicable. Null for categorical
+  /// results. Used for reference-range comparisons and trending.
+  valueNumeric Decimal? @db.Decimal(14, 4)
+  unit        String?  @db.VarChar(40)
+
+  /// Numeric reference range (when applicable). Either both or
+  /// neither set; route-level CHECK enforces.
+  referenceLow  Decimal? @db.Decimal(14, 4)
+  referenceHigh Decimal? @db.Decimal(14, 4)
+  /// Free-text reference for categorical results, e.g. "Negative".
+  referenceText String? @db.VarChar(80)
+
+  /// Explicit abnormal flag. Lab tech sets it; not recomputed at
+  /// read time so age/sex/delta-based judgments survive.
+  isAbnormal  Boolean  @default(false)
+  /// Optional severity flag — H, L, HH, LL, A. Display-only.
+  flag        String?  @db.VarChar(4)
+
+  /// Order within the result panel (lab tech can drag-reorder when
+  /// the entry UI supports it). Defaults to 0; multiple rows can
+  /// share an order.
+  displayOrder Int     @default(0)
+
+  notes       String?  @db.Text
+
+  enteredById String?  @db.Uuid
+  enteredBy   User?    @relation("LabTestResultEnterer", fields: [enteredById], references: [id], onDelete: SetNull)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([labTestId, displayOrder])
+  @@index([labTestId, isAbnormal])
+  @@map("lab_test_results")
+}
+
+model PatientDocument {
+  id           String       @id @default(uuid()) @db.Uuid
+  patientId    String       @db.Uuid
+  patient      Patient      @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  name         String       @db.VarChar(200)
+  type         DocumentType
+  fileUrl      String       @db.Text
+  fileSize     Int?
+  mimeType     String?      @db.VarChar(60)
+  uploadedById String       @db.Uuid
+  uploadedBy   User         @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
+  notes        String?      @db.Text
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  // v56 — AI photo scoring. At most one current scoring row per
+  // document; re-scoring replaces it. Cascade so a deleted document
+  // takes its score with it.
+  photoScore   PhotoScore?
+
+  @@index([patientId])
+  @@index([patientId, type])
+  @@index([uploadedById])
+  @@index([createdAt]) // chronological "recent uploads" listing
+  @@map("patient_documents")
+}
+
+// v56 — AI photo scoring (Tier 4.3).
+//
+// One row per scored PatientDocument. Stores the AI's structured
+// dermatology assessment plus model+prompt provenance so a future
+// audit can reconstruct what was analysed and by which model. Re-
+// scoring replaces the row (one-to-one with the document).
+//
+// Doctor decision flow (accept/reject) is intentionally NOT modelled
+// here in v1 — the score is informational, the doctor reads it and
+// uses their own judgment. Add a status enum later if a workflow
+// emerges.
+model PhotoScore {
+  id              String   @id @default(uuid()) @db.Uuid
+  documentId      String   @unique @db.Uuid
+  document        PatientDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  patientId       String   @db.Uuid
+  patient         Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  /// Recognised condition (e.g. "Acne vulgaris", "Melasma"). Free
+  /// text from the model — not bound to ICD-10. Doctor maps to a
+  /// real diagnosis if they want to commit it.
+  condition       String?  @db.VarChar(120)
+  /// Coarse severity. Free string so different conditions can pick
+  /// scales appropriate to them (IGA mild/moderate/severe for acne,
+  /// MASI bands for melasma, etc.).
+  severity        String?  @db.VarChar(20)
+  /// Approximate lesion / mole / patch count if countable.
+  lesionCount     Int?
+  /// Body area visible in the photo, as identified by the model.
+  bodyArea        String?  @db.VarChar(120)
+  /// Free-form findings narrative — what the model saw.
+  findings        String?  @db.Text
+  /// Suggested next steps. Always read as suggestions, not orders.
+  recommendations String?  @db.Text
+  /// Self-reported model confidence 0-100. May be null if the model
+  /// declined to estimate.
+  confidence      Int?
+
+  /// Provenance — exact model + prompt version that produced this row.
+  modelId         String   @db.VarChar(60)
+  promptVersion   String   @db.VarChar(60)
+  /// Who triggered the scoring run. Restrict so a deleted user
+  /// doesn't orphan the audit trail.
+  scoredById      String   @db.Uuid
+  scoredBy        User     @relation(fields: [scoredById], references: [id], onDelete: Restrict)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([patientId, createdAt(sort: Desc)])
+  @@index([scoredById])
+  @@map("photo_scores")
+}
+
+// ---- Billing ----
+
+model Invoice {
+  id            String        @id @default(uuid()) @db.Uuid
+  // v53: invoiceNumber is per-tenant unique (composite below).
+  invoiceNumber String        @db.VarChar(30) // INV-2026-0001
+  patientId     String        @db.Uuid
+  patient       Patient       @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  // appointmentId is optional and detaches on appointment deletion (SetNull)
+  // so historic invoices remain reproducible if the source appointment is purged.
+  appointmentId String?       @db.Uuid
+  appointment   Appointment?  @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  branchId      String        @db.Uuid
+  branch        Branch        @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  // v53: denormalized tenant FK; trigger keeps it == branch.tenantId.
+  tenantId      String        @db.Uuid
+  tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  // (14,2) covers multi-treatment package totals that can hit 8 digits.
+  subtotal      Decimal       @db.Decimal(14, 2)
+  discount      Decimal       @default(0) @db.Decimal(14, 2)
+  discountType  DiscountType  @default(FIXED)
+  tax           Decimal       @default(0) @db.Decimal(14, 2)
+  total         Decimal       @db.Decimal(14, 2)
+  amountPaid    Decimal       @default(0) @db.Decimal(14, 2)
+  balanceDue    Decimal       @default(0) @db.Decimal(14, 2)
+  status        InvoiceStatus @default(DRAFT)
+  dueDate       DateTime?     @db.Date
+  notes         String?       @db.Text
+  createdById   String        @db.Uuid
+  createdBy     User          @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  items           InvoiceItem[]
+  payments        Payment[]
+  refunds         Refund[]
+  patientPackages PatientPackage[]
+  qrTokens        QrToken[]
+  insuranceClaims InsuranceClaim[]
+
+  @@unique([tenantId, invoiceNumber])
+  @@index([tenantId])
+  @@index([patientId])
+  @@index([status])
+  @@index([branchId])
+  @@index([dueDate, status])
+  @@index([createdAt])
+  @@index([appointmentId])
+  @@index([createdById])
+  @@index([patientId, createdAt(sort: Desc)]) // patient history page (newest first)
+  @@index([patientId, status]) // outstanding invoices per patient
+  @@index([branchId, createdAt(sort: Desc)]) // branch-scoped revenue reports
+  @@map("invoices")
+}
+
+model Payment {
+  id            String            @id @default(uuid()) @db.Uuid
+  invoiceId     String            @db.Uuid
+  invoice       Invoice           @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  amount        Decimal           @db.Decimal(10, 2)
+  method        PaymentMethodType
+  reference     String?           @db.VarChar(100)
+  status        PaymentStatusType @default(PENDING)
+  processedById String            @db.Uuid
+  processedBy   User              @relation(fields: [processedById], references: [id], onDelete: Restrict)
+  processedAt   DateTime?
+  notes         String?           @db.Text
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  @@index([invoiceId])
+  @@index([method])
+  @@index([status])
+  @@index([processedById])
+  @@index([processedAt])
+  @@index([invoiceId, status]) // payment-status filter on an invoice's history
+  @@map("payments")
+}
+
+// ---- Packages ----
+
+model Package {
+  id             String   @id @default(uuid()) @db.Uuid
+  name           String   @db.VarChar(120)
+  description    String?  @db.Text
+  price          Decimal  @db.Decimal(10, 2)
+  validityDays   Int
+  maxRedemptions Int? // null = unlimited
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  treatments      PackageTreatment[]
+  patientPackages PatientPackage[]
+  invoiceItems    InvoiceItem[]
+  // Branch availability — same model as TreatmentBranch.
+  branches        PackageBranch[]
+
+  @@index([isActive])
+  @@index([createdAt])
+  @@map("packages")
+}
+
+model InvoiceItem {
+  id          String     @id @default(uuid()) @db.Uuid
+  invoiceId   String     @db.Uuid
+  invoice     Invoice    @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  // Catalog FKs use Restrict — treatments/products/packages must be soft-
+  // deactivated (isActive=false) rather than hard-deleted so receipts stay
+  // reproducible. A DB CHECK in the v11 migration also enforces at-most-one
+  // catalog link per line item.
+  treatmentId String?    @db.Uuid
+  treatment   Treatment? @relation(fields: [treatmentId], references: [id], onDelete: Restrict)
+  productId   String?    @db.Uuid
+  product     Product?   @relation(fields: [productId], references: [id], onDelete: Restrict)
+  packageId   String?    @db.Uuid
+  package     Package?   @relation(fields: [packageId], references: [id], onDelete: Restrict)
+  description String     @db.VarChar(300)
+  quantity    Int        @default(1)
+  unitPrice   Decimal    @db.Decimal(10, 2)
+  discount    Decimal    @default(0) @db.Decimal(10, 2)
+  tax         Decimal    @default(0) @db.Decimal(10, 2)
+  total       Decimal    @db.Decimal(10, 2)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([invoiceId])
+  @@index([treatmentId])
+  @@index([productId])
+  @@index([packageId])
+  @@map("invoice_items")
+}
+
+model PackageTreatment {
+  id          String     @id @default(uuid()) @db.Uuid
+  packageId   String     @db.Uuid
+  package     Package    @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  treatmentId String?    @db.Uuid
+  treatment   Treatment? @relation(fields: [treatmentId], references: [id], onDelete: SetNull)
+  name        String     @db.VarChar(120) // denormalized snapshot
+  sessions    Int
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@unique([packageId, treatmentId]) // one Treatment row per Package
+  @@index([packageId])
+  @@index([treatmentId])
+  @@map("package_treatments")
+}
+
+model PatientPackage {
+  id                String        @id @default(uuid()) @db.Uuid
+  patientId         String        @db.Uuid
+  patient           Patient       @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  packageId         String        @db.Uuid
+  package           Package       @relation(fields: [packageId], references: [id], onDelete: Restrict)
+  purchaseDate      DateTime      @db.Date
+  expiryDate        DateTime      @db.Date
+  remainingSessions Json // {treatmentName: sessionsLeft}
+  status            PackageStatus @default(ACTIVE)
+  invoiceId         String?       @db.Uuid
+  invoice           Invoice?      @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  @@index([patientId])
+  @@index([status])
+  @@index([invoiceId])
+  @@index([packageId])
+  @@index([expiryDate]) // "packages expiring this week" widget
+  @@index([purchaseDate]) // "packages sold this month" report
+  @@map("patient_packages")
+}
+
+// ---- Call Center ----
+
+model Lead {
+  id                 String         @id @default(uuid()) @db.Uuid
+  name               String         @db.VarChar(120)
+  phone              String         @db.VarChar(32)
+  email              String?        @db.VarChar(180)
+  source             LeadSourceType
+  status             LeadStatusType @default(NEW)
+  interest           String?        @db.VarChar(200) // what they asked about
+  assignedToId       String         @db.Uuid
+  assignedTo         User           @relation(fields: [assignedToId], references: [id], onDelete: Restrict)
+  branchId           String         @db.Uuid
+  branch             Branch         @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  notes              String?        @db.Text
+  convertedPatientId String?        @db.Uuid
+  convertedPatient   Patient?       @relation(fields: [convertedPatientId], references: [id], onDelete: SetNull)
+  callbackDate       DateTime?      @db.Timestamptz(6)
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  callLogs               CallLog[]
+  communications         CommunicationLog[]
+  websiteBookingsConverted WebsiteBookingOverride[] @relation("WebsiteBookingConvertedLead")
+  websiteMessagesConverted WebsiteMessageOverride[] @relation("WebsiteMessageConvertedLead")
+
+  @@index([phone])
+  @@index([status])
+  @@index([assignedToId])
+  @@index([branchId, status])
+  @@index([convertedPatientId])
+  @@index([callbackDate]) // "callbacks due today" dashboard widget
+  @@index([source]) // lead-source breakdown reports
+  @@index([status, createdAt(sort: Desc)]) // "new leads this week" reports
+  @@map("leads")
+}
+
+model CallLog {
+  id          String      @id @default(uuid()) @db.Uuid
+  leadId      String?     @db.Uuid
+  lead        Lead?       @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  patientId   String?     @db.Uuid
+  patient     Patient?    @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  userId      String      @db.Uuid
+  user        User        @relation(fields: [userId], references: [id], onDelete: Restrict)
+  type        Direction
+  duration    Int? // seconds
+  notes       String?     @db.Text
+  outcome     CallOutcome
+  // Raw caller id as reported by the phone / dialer. Preserved even when the
+  // call doesn't match any patient/lead so we can always show the real number
+  // and re-match later if the patient record is added after the fact.
+  phone       String?     @db.VarChar(32)
+  // Display name the device had for this number at call time (CACHED_NAME from
+  // Android's CallLog). Lets the dashboard show "Ali Khan · +92300…" without
+  // requiring a patient match.
+  contactName String?     @db.VarChar(100)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@index([leadId])
+  @@index([patientId])
+  @@index([userId, createdAt])
+  @@index([phone]) // dialer/Android bridge looks up history by raw caller id
+  @@index([outcome]) // call-outcome reports
+  @@index([outcome, createdAt(sort: Desc)]) // outcome-over-time reports
+  @@map("call_logs")
+}
+
+model CommunicationLog {
+  id        String      @id @default(uuid()) @db.Uuid
+  // Both patient + sender are nullable — inbound from an unknown
+  // number arrives before any human links it to a patient. The DB
+  // CHECK enforces that one of (patientId / leadId / phone) is set.
+  patientId String?     @db.Uuid
+  patient   Patient?    @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  // Optional lead linkage for inbound that matches a known prospect.
+  leadId    String?     @db.Uuid
+  lead      Lead?       @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  // Raw phone for unmatched inbound — preserved so a future patient
+  // record can be back-linked.
+  phone     String?     @db.VarChar(32)
+  type      CommChannel
+  direction Direction
+  subject   String?     @db.VarChar(200)
+  content   String?     @db.Text
+  sentById  String?     @db.Uuid
+  sentBy    User?       @relation(fields: [sentById], references: [id], onDelete: Restrict)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  @@index([patientId, type]) // covers [patientId] prefix
+  @@index([patientId, createdAt]) // patient timeline queries
+  @@index([createdAt]) // recent communications dashboards
+  @@index([sentById])
+  @@index([type, createdAt]) // channel-specific feeds (e.g. "WhatsApp today")
+  @@index([direction]) // inbound vs outbound feeds
+  @@index([leadId])
+  // The migration also creates partial indexes on phone and leadId
+  // and a (type, direction, createdAt DESC) composite for the
+  // recent-inbound feed — Prisma can't model partial indexes so they
+  // live in the migration SQL only.
+  @@map("communication_logs")
+}
+
+// ---- Follow-ups ----
+
+model FollowUp {
+  id            String         @id @default(uuid()) @db.Uuid
+  patientId     String         @db.Uuid
+  patient       Patient        @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  doctorId      String         @db.Uuid
+  doctor        User           @relation("DoctorFollowUps", fields: [doctorId], references: [id], onDelete: Restrict)
+  appointmentId String?        @db.Uuid
+  appointment   Appointment?   @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  dueDate       DateTime       @db.Date
+  reason        String         @db.Text
+  status        FollowUpStatus @default(PENDING)
+  notes         String?        @db.Text
+  completedAt   DateTime?      @db.Timestamptz(6)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@index([patientId])
+  @@index([status])
+  @@index([doctorId, dueDate, status]) // doctor's pending follow-ups; covers [doctorId] prefix
+  @@index([dueDate, status]) // global dashboard: all follow-ups due today; covers [dueDate] prefix
+  @@index([appointmentId])
+  @@map("follow_ups")
+}
+
+// ---- AI ----
+
+model AITranscription {
+  id             String              @id @default(uuid()) @db.Uuid
+  appointmentId  String              @db.Uuid
+  appointment    Appointment         @relation(fields: [appointmentId], references: [id], onDelete: Restrict)
+  patientId      String              @db.Uuid
+  patient        Patient             @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  doctorId       String              @db.Uuid
+  doctor         User                @relation(fields: [doctorId], references: [id], onDelete: Restrict)
+  rawTranscript  String?             @db.Text
+  structuredNote Json?
+  summary        String?             @db.Text
+  status         TranscriptionStatus @default(RECORDING)
+  duration       Int? // seconds
+  language       String?             @db.VarChar(10) // "en", "ur"
+  completedAt    DateTime?           @db.Timestamptz(6)
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  // Suggestions emitted from this transcription (e.g. proposed
+  // medications, labs, follow-ups). Nullable because not every
+  // transcription produces actionable proposals.
+  suggestions    AISuggestion[]      @relation("AISuggestionTranscription")
+
+  @@index([appointmentId])
+  @@index([patientId])
+  @@index([status])
+  @@index([doctorId])
+  @@index([completedAt]) // recent-transcriptions list
+  @@map("ai_transcriptions")
+}
+
+// AI suggestion audit log — every AI-generated proposal that
+// reaches the doctor as a clickable affordance (e.g. Ambient
+// Scribe v2 "Add this medication?" / "Order this lab?") is recorded
+// here BEFORE the doctor sees it, with the prompt + model used.
+// When the doctor accepts or rejects, the row is updated. Why this
+// exists: malpractice defense + model-quality monitoring + the
+// ability to retroactively answer "what did the AI tell the doctor
+// six months ago when it was on a different model?"
+//
+// The accepted/rejected decision is captured as a status enum so
+// "no action yet" is a distinct state from rejection.
+model AISuggestion {
+  id             String          @id @default(uuid()) @db.Uuid
+  // What kind of proposal: medication on Rx, lab order, follow-up
+  // booking, structured-note field. The string keeps it open for
+  // additions without an enum migration.
+  kind           AISuggestionKind
+  // Optional links to the things this suggestion was about / led
+  // to. Nullable because the patient/appointment may not be set on
+  // ad-hoc dictation. If the doctor accepts, `acceptedEntityType` +
+  // `acceptedEntityId` capture the artifact that was created
+  // (e.g. PrescriptionItem id, LabTest id) so we can trace from
+  // suggestion → real clinical record.
+  patientId      String?         @db.Uuid
+  patient        Patient?        @relation("AISuggestionPatient", fields: [patientId], references: [id], onDelete: SetNull)
+  appointmentId  String?         @db.Uuid
+  appointment    Appointment?    @relation("AISuggestionAppointment", fields: [appointmentId], references: [id], onDelete: SetNull)
+  // Which doctor saw this suggestion (the one who'd accept or
+  // reject). Distinct from the transcription's doctorId because in
+  // theory a supervising doctor could be acting on a junior's
+  // dictation.
+  doctorId       String          @db.Uuid
+  doctor         User            @relation("AISuggestionDoctor", fields: [doctorId], references: [id], onDelete: Restrict)
+
+  // What the AI said. Free-shape JSON so each kind can carry its
+  // own fields (medicineName + dosage for MEDICATION, testName +
+  // testCode for LAB, reason + days for FOLLOWUP, etc.).
+  payload        Json
+
+  // Provenance — exactly which model + prompt produced this. Both
+  // are required for retroactive defensibility. promptVersion is a
+  // string we manage in code (e.g. "ambient-v1.0").
+  modelId        String          @db.VarChar(80)  // e.g. "gpt-4o-mini"
+  promptVersion  String          @db.VarChar(40)  // e.g. "ambient-scribe-v1"
+
+  // Optional FK back to the transcription that produced this. Some
+  // suggestions arrive from non-transcription paths (text-only AI
+  // structuring) — those leave this null.
+  transcriptionId String?        @db.Uuid
+  transcription  AITranscription? @relation("AISuggestionTranscription", fields: [transcriptionId], references: [id], onDelete: SetNull)
+
+  // Decision lifecycle. PENDING by default; transitions to
+  // ACCEPTED / REJECTED / EXPIRED based on the doctor's action.
+  status         AISuggestionStatus @default(PENDING)
+  decidedAt      DateTime?       @db.Timestamptz(6)
+  decidedById    String?         @db.Uuid
+  decidedBy      User?           @relation("AISuggestionDecider", fields: [decidedById], references: [id], onDelete: SetNull)
+
+  // When the doctor accepts and the system creates a real
+  // artifact, capture what was created so we can later say "this
+  // PrescriptionItem originated as AI suggestion X". Both nullable
+  // because rejected/expired suggestions never produce an artifact.
+  acceptedEntityType String?      @db.VarChar(40)  // e.g. "PrescriptionItem"
+  acceptedEntityId   String?      @db.Uuid
+
+  rejectionReason String?        @db.Text
+
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@index([doctorId, createdAt(sort: Desc)])
+  @@index([patientId])
+  @@index([appointmentId])
+  @@index([transcriptionId])
+  @@index([status])
+  @@index([kind, status])
+  @@map("ai_suggestions")
+}
+
+enum AISuggestionKind {
+  MEDICATION
+  LAB
+  FOLLOWUP
+  PROCEDURE
+  NOTE_FIELD
+  DIAGNOSIS_HINT
+}
+
+enum AISuggestionStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
+// ---- Notifications ----
+
+model Notification {
+  id        String           @id @default(uuid()) @db.Uuid
+  userId    String           @db.Uuid
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String           @db.VarChar(200)
+  message   String           @db.Text
+  type      NotificationType
+  isRead    Boolean          @default(false)
+  link      String?          @db.Text
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  @@index([userId, isRead])
+  @@index([userId, createdAt])
+  @@index([type]) // "all SYSTEM notifications" admin filter
+  @@map("notifications")
+}
+
+// ---- Triage / Vitals ----
+
+model Triage {
+  id               String       @id @default(uuid()) @db.Uuid
+  patientId        String       @db.Uuid
+  patient          Patient      @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  appointmentId    String?      @db.Uuid
+  appointment      Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  temperature      Float?
+  temperatureUnit  String       @default("C") @db.VarChar(2) // "C" or "F"
+  systolicBP       Int?
+  diastolicBP      Int?
+  heartRate        Int?
+  respiratoryRate  Int?
+  weight           Float? // kg
+  height           Float? // cm
+  bmi              Float?
+  oxygenSaturation Float?
+  painLevel        Int? // 0-10
+  notes            String?      @db.Text
+  skinObservations String?      @db.Text
+  moistureLevel    Int? // 1-5
+  oilinessLevel    Int? // 1-5
+  urgencyLevel     Priority     @default(NORMAL)
+  recordedById     String       @db.Uuid
+  recordedBy       User         @relation(fields: [recordedById], references: [id], onDelete: Restrict)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  @@index([patientId])
+  @@index([appointmentId])
+  @@index([recordedById])
+  @@index([patientId, createdAt(sort: Desc)]) // patient triage timeline
+  @@index([urgencyLevel]) // urgent-triage queue sort
+  @@index([recordedById, createdAt(sort: Desc)]) // "my recorded triages"
+  @@map("triage_records")
+}
+
+// ---- Doctor Scheduling ----
+
+model DoctorSchedule {
+  id            String    @id @default(uuid()) @db.Uuid
+  doctorId      String    @db.Uuid
+  doctor        User      @relation(fields: [doctorId], references: [id], onDelete: Restrict)
+  dayOfWeek     DayOfWeek
+  startTime     String    @db.VarChar(5) // "09:00"
+  endTime       String    @db.VarChar(5) // "17:00"
+  breakStart    String?   @db.VarChar(5) // "13:00"
+  breakEnd      String?   @db.VarChar(5) // "14:00"
+  slotMinutes   Int       @default(30) // appointment slot duration
+  maxPatients   Int? // max per day, null = unlimited
+  isActive      Boolean   @default(true)
+  effectiveFrom DateTime  @db.Date
+  effectiveTo   DateTime? @db.Date // null = indefinite
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([doctorId, dayOfWeek, effectiveFrom])
+  @@index([doctorId])
+  @@index([doctorId, dayOfWeek, isActive])
+  @@map("doctor_schedules")
+}
+
+// ---- Consent Forms ----
+
+model ConsentForm {
+  id            String        @id @default(uuid()) @db.Uuid
+  patientId     String        @db.Uuid
+  patient       Patient       @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  appointmentId String?       @db.Uuid
+  appointment   Appointment?  @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  title         String        @db.VarChar(200) // "Laser Treatment Consent"
+  templateKey   String?       @db.VarChar(60) // links to a consent template
+  content       String        @db.Text // the actual consent text
+  status        ConsentStatus @default(PENDING)
+  signedAt      DateTime?
+  signatureUrl  String?       @db.Text // stored signature image
+  ipAddress     String?       @db.VarChar(45)
+  witnessName   String?       @db.VarChar(120)
+  expiresAt     DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([patientId])
+  @@index([appointmentId])
+  @@index([status])
+  @@map("consent_forms")
+}
+
+// ---- Refunds ----
+
+model Refund {
+  id            String             @id @default(uuid()) @db.Uuid
+  invoiceId     String             @db.Uuid
+  invoice       Invoice            @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  amount        Decimal            @db.Decimal(10, 2)
+  reason        String             @db.Text
+  status        RefundStatus       @default(REQUESTED)
+  method        PaymentMethodType?
+  reference     String?            @db.VarChar(100)
+  approvedById  String?            @db.Uuid
+  approvedBy    User?              @relation("RefundsApproved", fields: [approvedById], references: [id], onDelete: SetNull)
+  // SetNull mirrors v11's AuditLog change — a hard-deleted processor user
+  // shouldn't block a historical refund record.
+  processedById String?            @db.Uuid
+  processedBy   User?              @relation("RefundsProcessed", fields: [processedById], references: [id], onDelete: SetNull)
+  processedAt   DateTime?
+  notes         String?            @db.Text
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  @@index([invoiceId])
+  @@index([status])
+  @@index([approvedById])
+  @@index([processedById])
+  @@map("refunds")
+}
+
+// v58 — Insurance claim. One claim per submission to an insurer; an
+// invoice can have multiple claims over time (initial DRAFT plus an
+// APPEAL after a DENIED). Numbers are per-tenant unique using the
+// CLM-YYYY-NNNN scheme (mirrors invoiceNumber from v53).
+//
+// Diagnosis codes are *snapshot* on the claim row at submit time —
+// editing the consultation note later does not change what the
+// insurer was told. This matches how real-world clinics handle
+// claim audits.
+model InsuranceClaim {
+  id              String   @id @default(uuid()) @db.Uuid
+  claimNumber     String   @db.VarChar(30) // CLM-2026-0001
+
+  // Source invoice + denormalized scope. Restrict-on-delete preserves
+  // the audit trail; a settled claim shouldn't disappear because the
+  // invoice was archived.
+  invoiceId       String   @db.Uuid
+  invoice         Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  patientId       String   @db.Uuid
+  patient         Patient  @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  insuranceId     String   @db.Uuid
+  insurance       Insurance @relation(fields: [insuranceId], references: [id], onDelete: Restrict)
+  branchId        String   @db.Uuid
+  branch          Branch   @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  // tenantId denormalized; trigger keeps it == branch.tenantId (v53 pattern).
+  tenantId        String   @db.Uuid
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+
+  /// Snapshot of ICD-10 diagnosis codes at submit time. Independent
+  /// of consultation_notes.icd10Codes — the note can be amended later
+  /// without rewriting submitted claims.
+  diagnosisCodes  String[] @default([])
+
+  // Amounts (Decimal(14,2), PKR). claimedAmount is what we asked for,
+  // approvedAmount is what the insurer agreed to (set on decision),
+  // paidAmount is what they actually wired. copayCollected tracks
+  // the patient's share already taken at the desk.
+  claimedAmount   Decimal  @db.Decimal(14, 2)
+  approvedAmount  Decimal? @db.Decimal(14, 2)
+  paidAmount      Decimal  @default(0) @db.Decimal(14, 2)
+  copayCollected  Decimal  @default(0) @db.Decimal(14, 2)
+
+  status          InsuranceClaimStatus @default(DRAFT)
+
+  // Lifecycle timestamps. Populated as the claim moves through the
+  // status enum; CHECKs in the v58 migration enforce ordering.
+  submittedAt     DateTime? @db.Timestamptz(6)
+  decidedAt       DateTime? @db.Timestamptz(6)
+  paidAt          DateTime? @db.Timestamptz(6)
+
+  /// Insurer's tracking reference (their internal claim id).
+  insurerReference String? @db.VarChar(80)
+  /// Required when status=DENIED to keep the audit trail useful.
+  denialReason     String? @db.Text
+  /// v60 — Optional FK into the per-tenant DenialReason taxonomy.
+  /// Coexists with the free-text `denialReason` field; pickers fill
+  /// both. SetNull on payer-side delete keeps historical claims
+  /// readable if an admin retires a code.
+  denialReasonCodeId String? @db.Uuid
+  denialReasonCode DenialReason? @relation("InsuranceClaimDenialReason", fields: [denialReasonCodeId], references: [id], onDelete: SetNull)
+  notes            String? @db.Text
+
+  createdById     String   @db.Uuid
+  createdBy       User     @relation("InsuranceClaimCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([tenantId, claimNumber])
+  @@index([tenantId])
+  @@index([patientId])
+  @@index([invoiceId])
+  @@index([insuranceId])
+  @@index([branchId])
+  @@index([status])
+  @@index([denialReasonCodeId])
+  @@index([branchId, createdAt(sort: Desc)])
+  @@map("insurance_claims")
+}
+
+// ---- Product / Inventory ----
+
+model Product {
+  id           String          @id @default(uuid()) @db.Uuid
+  name         String          @db.VarChar(150)
+  sku          String?         @unique @db.VarChar(30)
+  // PostgreSQL treats multiple NULLs as distinct under UNIQUE, so we don't need
+  // a partial predicate here — products without a barcode coexist freely.
+  barcode      String?         @unique @db.VarChar(30)
+  category     ProductCategory
+  brand        String?         @db.VarChar(80)
+  description  String?         @db.Text
+  costPrice    Decimal         @db.Decimal(10, 2)
+  sellPrice    Decimal         @db.Decimal(10, 2)
+  quantity     Int             @default(0)
+  reorderLevel Int             @default(5)
+  unit         String?         @db.VarChar(20) // "ml", "tube", "bottle"
+  expiryDate   DateTime?       @db.Date
+  branchId     String          @db.Uuid
+  branch       Branch          @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  isActive     Boolean         @default(true)
+  imageUrl     String?         @db.Text
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  invoiceItems InvoiceItem[]
+
+  @@index([branchId])
+  @@index([category])
+  @@index([sku])
+  @@index([quantity]) // low stock alerts
+  @@index([expiryDate])
+  @@index([branchId, isActive]) // "active stock per branch" listings
+  @@map("products")
+}
+
+// ---- Waitlist ----
+
+model Waitlist {
+  id                  String          @id @default(uuid()) @db.Uuid
+  patientId           String          @db.Uuid
+  patient             Patient         @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  patientName         String          @db.VarChar(120) // denormalized for quick display
+  phone               String          @db.VarChar(32)
+  doctorId            String?         @db.Uuid
+  doctor              User?           @relation("WaitlistDoctor", fields: [doctorId], references: [id], onDelete: SetNull)
+  preferredDate       DateTime?       @db.Date
+  preferredTime       String?         @db.VarChar(5)
+  appointmentType     AppointmentType
+  priority            Priority        @default(NORMAL)
+  notes               String?         @db.Text
+  isNotified          Boolean         @default(false)
+  bookedAppointmentId String?         @db.Uuid
+  bookedAppointment   Appointment?    @relation(fields: [bookedAppointmentId], references: [id], onDelete: SetNull)
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  @@index([patientId])
+  @@index([doctorId])
+  @@index([preferredDate])
+  @@index([priority])
+  @@index([bookedAppointmentId])
+  @@map("waitlist")
+}
+
+// ---- System Settings ----
+
+model SystemSetting {
+  id        String   @id @default(uuid()) @db.Uuid
+  key       String   @unique @db.VarChar(100) // "tax_rate", "invoice_prefix"
+  value     String   @db.Text
+  group     String   @db.VarChar(40) // "billing", "appointments", "general"
+  label     String   @db.VarChar(120)
+  type      String   @db.VarChar(20) // "string", "number", "boolean", "json"
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+
+  @@index([group])
+  @@map("system_settings")
+}
+
+// ---- Doctor Leave / Time-Off ----
+
+model DoctorLeave {
+  id           String      @id @default(uuid()) @db.Uuid
+  doctorId     String      @db.Uuid
+  doctor       User        @relation("DoctorLeaves", fields: [doctorId], references: [id], onDelete: Restrict)
+  type         LeaveType
+  startDate    DateTime    @db.Date
+  endDate      DateTime    @db.Date
+  reason       String?     @db.Text
+  status       LeaveStatus @default(PENDING)
+  approvedById String?     @db.Uuid
+  approver     User?       @relation("DoctorLeaveApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@index([doctorId])
+  @@index([startDate, endDate])
+  @@index([status])
+  @@index([approvedById])
+  @@index([doctorId, startDate]) // "Dr X upcoming leaves"
+  @@map("doctor_leaves")
+}
+
+// ---- Patient Tags ----
+
+model PatientTag {
+  id        String   @id @default(uuid()) @db.Uuid
+  patientId String   @db.Uuid
+  patient   Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  tag       String   @db.VarChar(50) // "VIP", "Sensitive Skin", "Acne Prone", "Loyalty"
+  color     String?  @db.VarChar(7) // "#FF5733"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([patientId, tag])
+  @@index([patientId])
+  @@index([tag])
+  @@map("patient_tags")
+}
+
+// ---- Calendar Blocked Slots ----
+
+enum BlockedSlotType {
+  BREAK
+  LUNCH
+  PRAYER
+  MEETING
+  MAINTENANCE
+  LEAVE
+  EMERGENCY_HOLD
+  MANUAL
+}
+
+model BlockedSlot {
+  id          String          @id @default(uuid()) @db.Uuid
+  doctorId    String?         @db.Uuid
+  doctor      User?           @relation("BlockedSlots", fields: [doctorId], references: [id], onDelete: SetNull)
+  roomId      String?         @db.Uuid
+  room        Room?           @relation("BlockedSlotRoom", fields: [roomId], references: [id], onDelete: SetNull)
+  branchId    String?         @db.Uuid
+  branch      Branch?         @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  date        DateTime        @db.Date
+  startTime   String          @db.VarChar(5) // "09:00"
+  endTime     String          @db.VarChar(5) // "09:30"
+  type        BlockedSlotType
+  reason      String?         @db.Text
+  createdById String?         @db.Uuid
+  createdBy   User?           @relation("BlockedSlotCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([doctorId, date])
+  @@index([roomId, date])
+  @@index([branchId, date])
+  @@index([date])
+  @@index([branchId])
+  @@index([createdById])
+  @@index([type]) // break / prayer / lunch breakdowns
+  @@map("blocked_slots")
+}
+
+// ---- Treatment / Package Branch availability (many-to-many) ----
+
+/// Join table: which branches offer this treatment. UNIQUE (treatmentId,
+/// branchId) prevents the same pair appearing twice. Cascade on either
+/// side so the link evaporates when its parent is deleted.
+model TreatmentBranch {
+  id          String    @id @default(uuid()) @db.Uuid
+  treatmentId String    @db.Uuid
+  treatment   Treatment @relation(fields: [treatmentId], references: [id], onDelete: Cascade)
+  branchId    String    @db.Uuid
+  branch      Branch    @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+
+  @@unique([treatmentId, branchId])
+  @@index([branchId])
+  @@map("treatment_branches")
+}
+
+/// Join table: which branches offer this package. Same shape as
+/// TreatmentBranch.
+model PackageBranch {
+  id        String   @id @default(uuid()) @db.Uuid
+  packageId String   @db.Uuid
+  package   Package  @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  branchId  String   @db.Uuid
+  branch    Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([packageId, branchId])
+  @@index([branchId])
+  @@map("package_branches")
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Petty cash + daily closing — billing/accounts daily report
+// ─────────────────────────────────────────────────────────────────
+
+/// Categories for till disbursements / petty cash. Mirrors the
+/// "Account / Sub-Account" column on the SkedWise Daily Sheet so the
+/// daily report groups expenses cleanly. SALARY covers both monthly
+/// payouts and ad-hoc advance salaries.
+enum PettyCashCategory {
+  SALARY
+  SALARY_ADVANCE
+  OFFICE_EXPENSE
+  CONSUMABLES
+  MAINTENANCE
+  UTILITIES
+  REFUND_OUT
+  OTHER
+}
+
+/// One row per cash payout from the till during the day — staff salary,
+/// office supplies, refund returned to patient, etc. Subtracted from
+/// "Cash Received from invoices" in the day's reconciliation:
+///   Opening + Cash Receipts − Petty Cash − CC Tips = Cash in Hand
+///
+/// `paidTo` is free text because the recipient might be a staff member,
+/// a patient (for refunds), or an external vendor — we don't want to
+/// tie this to user IDs that may not exist.
+model PettyCashExpense {
+  id          String            @id @default(uuid()) @db.Uuid
+  branchId    String            @db.Uuid
+  branch      Branch            @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  /// Day of the disbursement in clinic-time (Asia/Karachi). Stored as
+  /// @db.Date so end-of-day grouping works with the same clinicDayRange
+  /// helper the rest of the app uses.
+  date        DateTime          @db.Date
+  category    PettyCashCategory
+  /// Free-text sub-account, e.g. "ali advance salary", "printer ink".
+  description String            @db.VarChar(200)
+  paidTo      String?           @db.VarChar(120)
+  // 12,2 not 10,2 — bulk salary disbursements (rent + multiple salaries
+  // logged as one petty-cash row) can exceed the 99,999 ceiling. v12
+  // bumped Payment to 12,2 for the same reason; staying consistent.
+  amount      Decimal           @db.Decimal(12, 2)
+  notes       String?           @db.Text
+  recordedById String           @db.Uuid
+  recordedBy   User             @relation("PettyCashRecorded", fields: [recordedById], references: [id], onDelete: Restrict)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@index([branchId, date])
+  @@index([date])
+  @@index([category])
+  @@index([recordedById]) // "petty cash entered by user X" reports
+  @@map("petty_cash_expenses")
+}
+
+/// Frozen end-of-day snapshot for a (date, branch) pair. Once a day is
+/// closed, the totals/JSON breakdowns persist here even if invoices or
+/// payments are later edited — the saved report shows what the cash
+/// drawer actually looked like at close time, not a live recompute.
+///
+/// Pre-close, the report is computed live from invoices+payments+
+/// pettyCashExpenses. Post-close, viewers read this snapshot directly.
+///
+/// `salesByCategory` / `paymentsByMethod` / `expensesByCategory` /
+/// `denominations` are JSON to keep the schema future-proof — adding a
+/// new payment method later doesn't need a migration.
+model DailyClosing {
+  id          String   @id @default(uuid()) @db.Uuid
+  branchId    String   @db.Uuid
+  branch      Branch   @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  date        DateTime @db.Date
+  /// Cash brought forward from previous day's "tomorrow's till"
+  /// + any morning top-up. 12,2 to match the rest of the snapshot
+  /// (totalPayments etc are 12,2 — using a smaller precision here
+  /// would create reconciliation dead zones at the upper end).
+  openingTill Decimal  @db.Decimal(12, 2) @default(0)
+  /// What the receptionist counted in the drawer. JSON keyed by
+  /// denomination, e.g. {"5000":2,"1000":3,"500":1,"100":5}. Total
+  /// computed in `cashCounted` for indexable reporting.
+  denominations Json?
+  cashCounted   Decimal  @db.Decimal(12, 2) @default(0)
+  /// Everything below is the FROZEN snapshot — recomputed at close
+  /// time, never updated. JSON shapes:
+  ///   salesByCategory:   { Services: 23000.51, Products: 0, ... }
+  ///   paymentsByMethod:  { CASH: 15000, CARD: 8000, ... }
+  ///   expensesByCategory:{ SALARY: 5000, SALARY_ADVANCE: 10000, ... }
+  salesByCategory    Json
+  paymentsByMethod   Json
+  expensesByCategory Json
+  invoiceCount       Int      @default(0)
+  paymentCount       Int      @default(0)
+  expenseCount       Int      @default(0)
+  grossSale          Decimal  @db.Decimal(12, 2) @default(0)
+  netSale            Decimal  @db.Decimal(12, 2) @default(0)
+  totalDiscount      Decimal  @db.Decimal(12, 2) @default(0)
+  totalTax           Decimal  @db.Decimal(12, 2) @default(0)
+  totalPayments      Decimal  @db.Decimal(12, 2) @default(0)
+  totalExpenses      Decimal  @db.Decimal(12, 2) @default(0)
+  /// Opening + cash receipts − petty cash − CC tips. The "you should
+  /// have" number; compared against `cashCounted` to compute over/short.
+  expectedCash       Decimal  @db.Decimal(12, 2) @default(0)
+  difference         Decimal  @db.Decimal(12, 2) @default(0) // counted - expected
+  remarks            String?  @db.Text
+  closedById         String   @db.Uuid
+  closedBy           User     @relation("DailyClosingClosedBy", fields: [closedById], references: [id], onDelete: Restrict)
+  closedAt           DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  // [branchId, date] composite index dropped — the @@unique below already
+  // creates one with the same column order.
+  @@unique([branchId, date])
+  @@index([date])
+  @@index([closedById]) // "closings done by user X" audit reports
+  @@map("daily_closings")
+}
+
+// ─────────────────────────────────────────────────────────────────
+// Role permission overrides — runtime grants/denials on top of
+// the static module-definition permission grid. Each row says
+// "for this (role, module, action), force the answer to `granted`."
+// Absence of a row falls back to the module definition.
+// ─────────────────────────────────────────────────────────────────
+//
+// Why this exists: the static `permissions` field on each module
+// definition is the source of truth, but admins also need to flip
+// permissions per role without a redeploy (e.g. give Aestheticians
+// Edit on Procedures temporarily, take Delete back from Receptionists).
+// /admin/roles writes here; the registry reads them on app boot and
+// merges with module definitions when checking access.
+//
+// (role, moduleId, action) is unique — only one override per cell.
+// `action` is a String, not an enum, because PermissionAction lives
+// in TypeScript only — Prisma doesn't know about it. The set of
+// valid values is enforced at the API layer via a zod check.
+model RolePermissionOverride {
+  id          String   @id @default(uuid()) @db.Uuid
+  role        UserRole
+  moduleId    String   @db.VarChar(60)
+  /// VIEW | CREATE | EDIT | DELETE | EXPORT — enforced by a CHECK
+  /// constraint at the DB level (added in the v27 migration) so a
+  /// bad direct insert can't poison permission evaluation.
+  action      String   @db.VarChar(20)
+  granted     Boolean
+  /// Audit trail: who flipped the override. Nullable + SetNull so a
+  /// deleted user doesn't take their override history with them — we
+  /// keep the row, just lose the "by whom" attribution. Population
+  /// happens in /api/admin/role-permissions PUT from auth.user.id.
+  createdById String?  @db.Uuid
+  createdBy   User?    @relation("RolePermissionOverrideCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([role, moduleId, action])
+  @@index([role])
+  @@index([moduleId])     // "all overrides affecting MOD-PATIENT" lookups
+  @@index([createdById])  // "overrides toggled by user X" audit
+  @@map("role_permission_overrides")
+}
+
+// QR token printed on the thermal receipt. Opaque random string;
+// resolves at /qr/[token] to either the staff visit workflow page
+// (logged-in) or a public thank-you page (anonymous). No patient data
+// in the URL — see lib/qr-tokens.ts for the generator.
+model QrToken {
+  id            String   @id @default(uuid()) @db.Uuid
+  token         String   @unique @db.VarChar(32)
+
+  appointmentId String?  @db.Uuid
+  appointment   Appointment? @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  invoiceId     String?  @db.Uuid
+  invoice       Invoice?     @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  // Both nullable. Staff workflow refuses revoked/expired tokens; the
+  // public thank-you page still renders so old printed receipts work.
+  revokedAt     DateTime?
+  expiresAt     DateTime?
+
+  createdAt     DateTime @default(now())
+  createdById   String?  @db.Uuid
+  createdBy     User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  scans         QrScanLog[]
+  review        VisitReview?
+
+  @@index([appointmentId])
+  @@index([invoiceId])
+  @@index([createdById]) // "tokens issued by user X" audit
+  // NB: a partial index `WHERE revokedAt IS NULL` scoped by
+  // appointmentId is also created in migration v28 to speed up the
+  // getOrCreateToken hot path. Prisma can't express partial indexes
+  // declaratively yet, so it lives only in the migration SQL.
+  @@map("qr_tokens")
+}
+
+// Patient feedback submitted from the public /review/[token] page.
+// One row per token (1:1 with QrToken) — repeat scans show a
+// "thanks" state instead of the form.
+model VisitReview {
+  id             String   @id @default(uuid()) @db.Uuid
+  tokenId        String   @unique @db.Uuid
+  token          QrToken  @relation(fields: [tokenId], references: [id], onDelete: Cascade)
+  rating         Int      // 1-5, CHECK enforced at DB
+  feedback       String?  @db.Text
+  wouldRecommend Boolean?
+  // Optional display name the patient picks — never required, never
+  // their real name unless they choose to type it.
+  pseudonym      String?  @db.VarChar(60)
+  submittedAt    DateTime @default(now())
+  ipAddress      String?  @db.VarChar(45)
+  userAgent      String?  @db.VarChar(300)
+
+  @@index([submittedAt])
+  @@index([rating, submittedAt(sort: Desc)]) // low-rating triage
+  @@map("visit_reviews")
+}
+
+// Audit trail for every QR scan. userId null = unauthenticated public
+// scan. outcome is one of STAFF_VISIT, PUBLIC_THANKYOU, REVOKED,
+// EXPIRED, NOT_FOUND.
+model QrScanLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  tokenId    String   @db.Uuid
+  token      QrToken  @relation(fields: [tokenId], references: [id], onDelete: Cascade)
+
+  userId     String?  @db.Uuid
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  scannedAt  DateTime @default(now())
+  ipAddress  String?  @db.VarChar(45)
+  userAgent  String?  @db.VarChar(300)
+  outcome    String   @db.VarChar(20)
+
+  @@index([tokenId])
+  @@index([userId])
+  @@index([scannedAt])
+  @@index([outcome, scannedAt(sort: Desc)]) // analytics: outcome × time
+  @@map("qr_scan_logs")
+}
+
+// CRM-side follow-up state for website booking-form submissions.
+// Joins to upstream rows by `upstreamId` (the integer id from
+// drnakhodas.com/api/appointments). One row per upstream booking.
+enum WebsiteBookingStatus {
+  PENDING
+  CONTACTED
+  SCHEDULED
+  CLOSED
+  REJECTED
+}
+
+model WebsiteBookingOverride {
+  id              String   @id @default(uuid()) @db.Uuid
+  upstreamId      Int      @unique
+  status          WebsiteBookingStatus @default(PENDING)
+  notes           String?  @db.Text
+  // FK to the lead this booking was converted into. Nullable
+  // because most overrides represent in-progress follow-up rather
+  // than a converted lead.
+  convertedLeadId String?  @db.Uuid
+  convertedLead   Lead?    @relation("WebsiteBookingConvertedLead", fields: [convertedLeadId], references: [id], onDelete: SetNull)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  updatedById     String?  @db.Uuid
+  updatedBy       User?    @relation("WebsiteBookingOverrideUpdater", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([updatedAt(sort: Desc)])
+  @@index([updatedById])
+  // NB: a partial index on convertedLeadId (WHERE NOT NULL) lives in
+  // the v30 migration SQL; Prisma can't model partial indexes.
+  @@map("website_booking_overrides")
+}
+
+// CRM-side follow-up state for website contact-form submissions.
+// Mirror of WebsiteBookingOverride but for the /api/messages
+// upstream feed. Today the only override we record is "converted to
+// a lead" (so the inbox can show ✓ View lead instead of the convert
+// button). Notes are kept available for parity even though the
+// Messages tab doesn't surface them yet.
+model WebsiteMessageOverride {
+  id              String   @id @default(uuid()) @db.Uuid
+  upstreamId      Int      @unique
+  notes           String?  @db.Text
+  convertedLeadId String?  @db.Uuid
+  convertedLead   Lead?    @relation("WebsiteMessageConvertedLead", fields: [convertedLeadId], references: [id], onDelete: SetNull)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  updatedById     String?  @db.Uuid
+  updatedBy       User?    @relation("WebsiteMessageOverrideUpdater", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([updatedAt(sort: Desc)])
+  @@index([updatedById])
+  @@map("website_message_overrides")
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Multi-doctor collaboration — threaded notes between staff
+// anchored to a Patient (and optionally to a specific Consultation
+// Note or Procedure). Each comment can @mention other staff
+// members; mentions are stored as rows for read/unread tracking.
+// ═══════════════════════════════════════════════════════════════
+//
+// Access pattern: staff in the same tenant as the patient can read
+// + write. The doctor-app's "Team chat" surface and the desktop's
+// patient profile both consume the same endpoints.
+
+model CollaborationThread {
+  id                  String   @id @default(uuid()) @db.Uuid
+  // Patient is the canonical access-control anchor. Required even
+  // when the thread is "about" a procedure/consult — the patient
+  // is who staff need permission against.
+  patientId           String   @db.Uuid
+  patient             Patient  @relation("CollaborationThreadPatient", fields: [patientId], references: [id], onDelete: Cascade)
+  tenantId            String   @db.Uuid
+  tenant              Tenant   @relation("CollaborationThreadTenant", fields: [tenantId], references: [id], onDelete: Restrict)
+
+  // Optional sub-anchors. At most one is set at a time (CHECK
+  // enforces). Null means a patient-level thread.
+  consultationNoteId  String?           @db.Uuid
+  consultationNote    ConsultationNote? @relation("CollaborationThreadNote", fields: [consultationNoteId], references: [id], onDelete: SetNull)
+  procedureId         String?           @db.Uuid
+  procedure           Procedure?        @relation("CollaborationThreadProcedure", fields: [procedureId], references: [id], onDelete: SetNull)
+
+  title               String?  @db.VarChar(160)
+  isResolved          Boolean  @default(false)
+
+  createdById         String   @db.Uuid
+  createdBy           User     @relation("CollaborationThreadCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  comments            CollaborationComment[]
+
+  @@index([patientId])
+  @@index([tenantId])
+  @@index([consultationNoteId])
+  @@index([procedureId])
+  @@index([updatedAt(sort: Desc)])
+  @@map("collaboration_threads")
+}
+
+model CollaborationComment {
+  id              String   @id @default(uuid()) @db.Uuid
+  threadId        String   @db.Uuid
+  thread          CollaborationThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  authorId        String   @db.Uuid
+  author          User     @relation("CollaborationCommentAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+  body            String   @db.Text
+  // Single-level threading: replies point to the parent comment.
+  // Postgres doesn't have a real tree structure here; keeping it
+  // single-depth keeps the UI simple and the query cost flat.
+  parentCommentId String?  @db.Uuid
+  parentComment   CollaborationComment?  @relation("CollaborationCommentReplies", fields: [parentCommentId], references: [id], onDelete: SetNull)
+  replies         CollaborationComment[] @relation("CollaborationCommentReplies")
+
+  // Track soft-edits — body diff history isn't kept (single text
+  // overwrite); the timestamp lets the UI show "edited 2 min ago".
+  editedAt        DateTime? @db.Timestamptz(6)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  mentions        CollaborationMention[]
+
+  @@index([threadId, createdAt])
+  @@index([authorId])
+  @@index([parentCommentId])
+  @@map("collaboration_comments")
+}
+
+model CollaborationMention {
+  id          String   @id @default(uuid()) @db.Uuid
+  commentId   String   @db.Uuid
+  comment     CollaborationComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  // The user being mentioned. They get the unread badge.
+  userId      String   @db.Uuid
+  user        User     @relation("CollaborationMentionTarget", fields: [userId], references: [id], onDelete: Cascade)
+  readAt      DateTime? @db.Timestamptz(6)
+  createdAt   DateTime  @default(now())
+
+  // One row per (comment, user) — mentioning the same person
+  // twice in one comment dedups via the unique index.
+  @@unique([commentId, userId])
+  @@index([userId, readAt])
+  @@map("collaboration_mentions")
+}
+
+// Session revocation — a JWT's `jti` here is rejected by the auth
+// middleware even if the token's signature + expiresAt are still
+// valid. Logout adds the jti; the desktop "Sign out everywhere"
+// (future) can revoke an entire user's active set in one shot.
+model RevokedSession {
+  jti        String    @id @db.VarChar(64)
+  userId     String    @db.Uuid
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt  DateTime  @db.Timestamptz(6)
+  reason     String?   @db.VarChar(40)
+  revokedAt  DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("revoked_sessions")
+}
+
+// v55 — ICD-10 master catalogue. Curated subset of dermatology and
+// common comorbidity codes, seeded by the v55 migration. The
+// canonical source is WHO ICD-10 2019; codes here use the dotted
+// form (e.g. "L70.0"). `description` is the human-friendly name
+// shown in the picker; `category` groups codes for easier browsing
+// (e.g. "Disorders of skin appendages").
+//
+// Notes are stored in `consultation_notes.icd10Codes` as a String[]
+// array; the FK relationship to this table is checked at the route
+// layer rather than the DB tier (Postgres array FKs are awkward and
+// the catalogue is read-only in normal use).
+model ICD10Code {
+  code        String   @id @db.VarChar(10) // e.g. "L70.0"
+  description String   @db.VarChar(200)
+  category    String?  @db.VarChar(120)
+  /** When true, suggested first in the picker — used to surface
+   *  high-frequency codes (acne, eczema, psoriasis). */
+  isCommon    Boolean  @default(false)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([category])
+  @@index([isCommon, isActive])
+  @@map("icd10_codes")
+}

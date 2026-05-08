@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Adaptive-icon foreground. Authoring canvas is 108×108 dp; the inner 72×72
+    safe zone is what's guaranteed visible after OEM masking. We draw a
+    centered phone-handset glyph + a small "M" mark (MediCore) using simple
+    fill paths so we don't need a PNG asset.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Phone handset (centered, ~52dp tall) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M44.5,30 L44.5,38 C44.5,41 47,43.5 50,43.5 L51,43.5 C51.5,46.5 52.7,49.4 54.4,52 L52,54.5 C50,56.5 50,59.7 52,61.7 L60.5,70.2 C62.5,72.2 65.7,72.2 67.7,70.2 L70.2,67.7 C72.8,69.4 75.7,70.6 78.7,71.1 L78.7,72.1 C78.7,75.1 81.2,77.6 84.2,77.6 L92,77.6 C95,77.6 97.5,75.1 97.5,72.1 L97.5,68.7 L97.5,68.7 C97.5,65.7 95,63.2 92,63.2 L84.5,63.2 L84.5,63.7 C81.4,63.4 78.4,62.5 75.7,61.1 C72.4,59.4 69.6,57 67.4,54.1 L70.4,51.1 L70.4,51.1 C72.4,49.1 72.4,45.9 70.4,43.9 L62,35.4 C60,33.4 56.8,33.4 54.8,35.4 L52.4,37.8 C49.7,36 46.8,34.6 43.7,33.7 L43.7,30 C43.7,30 44,30 44.5,30 Z" />
+
+    <!-- "M" lettermark in upper-right corner — small but visible after masking -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillAlpha="0.85"
+        android:pathData="M68,28 L72,28 L76,36 L80,28 L84,28 L84,46 L80,46 L80,34 L76,42 L72,34 L72,46 L68,46 Z" />
+</vector>

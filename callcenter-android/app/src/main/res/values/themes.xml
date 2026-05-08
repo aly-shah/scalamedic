@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Branded theme: forced light mode (so the white card backgrounds in
+         the layouts stay readable on phones that are in dark mode), with
+         MediCore teal as the primary accent. Inherits from MaterialComponents
+         Light because we use OutlinedBox text inputs + MaterialButton. -->
+    <style name="Theme.MediCore" parent="Theme.MaterialComponents.Light.NoActionBar">
+        <item name="colorPrimary">@color/brand</item>
+        <item name="colorPrimaryDark">@color/brand_dark</item>
+        <item name="colorAccent">@color/brand</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+        <item name="android:colorBackground">@color/ink_50</item>
+        <item name="android:windowBackground">@color/ink_50</item>
+        <item name="android:statusBarColor">@color/brand_dark</item>
+        <item name="android:textColorPrimary">@color/ink_900</item>
+        <item name="android:textColorSecondary">@color/ink_500</item>
+    </style>
+</resources>

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">MediCore Reception</string>
+    <string name="app_tagline">Reception &amp; call sync</string>
+
+    <!-- Login -->
+    <string name="login_title">Welcome back</string>
+    <string name="login_subtitle">Sign in to start syncing calls + WhatsApp to your clinic dashboard.</string>
+    <string name="login_email_hint">MediCore email</string>
+    <string name="login_password_hint">Password</string>
+    <string name="login_submit">Sign in</string>
+    <string name="login_signing_in">Signing in…</string>
+
+    <!-- Main -->
+    <string name="status_connected">Connected</string>
+    <string name="status_disconnected">Offline</string>
+    <string name="empty_activity_title">Waiting for activity</string>
+    <string name="empty_activity_body">Calls and WhatsApp messages forwarded by this phone will appear here.</string>
+    <string name="action_sign_out">Sign out</string>
+    <string name="action_grant_perms">Grant permissions</string>
+    <string name="perm_banner">Grant call log + notification access for sync to work.</string>
+</resources>

@@ -1,0 +1,174 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-background: #FAFAF9;
+  --color-foreground: #1C1917;
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+/* =============================================
+   DESIGN TOKENS — Standardized System
+   ============================================= */
+
+:root {
+  /* Shell */
+  --sidebar-width: 264px;
+  --sidebar-collapsed: 80px;
+  --topbar-height: 64px;
+  --topbar-height-mobile: 56px;
+  --content-max: 1440px;
+
+  /* Spacing scale: 4 8 12 16 20 24 32 40 48 */
+  --page-px: 24px;
+  --page-px-tablet: 20px;
+  --page-px-mobile: 16px;
+  --card-padding: 20px;
+  --card-padding-dense: 16px;
+  --section-gap: 24px;
+  --inside-card-gap: 16px;
+  --compact-row-gap: 12px;
+
+  /* Radii */
+  --radius-card: 20px;
+  --radius-button: 14px;
+  --radius-input: 14px;
+  --radius-badge: 9999px;
+  --radius-drawer: 24px;
+  --radius-drawer-mobile: 20px;
+
+  /* Shadows */
+  --shadow-surface-1: 0 1px 3px rgba(28,25,23,0.04), 0 1px 2px rgba(28,25,23,0.02);
+  --shadow-surface-2: 0 4px 12px rgba(28,25,23,0.06), 0 1px 3px rgba(28,25,23,0.04);
+  --shadow-surface-3: 0 12px 40px rgba(28,25,23,0.12), 0 4px 12px rgba(28,25,23,0.06);
+
+  /* Typography scale */
+  --text-page-title: 1.375rem;     /* 22px */
+  --text-section-title: 0.9375rem; /* 15px */
+  --text-card-title: 0.8125rem;    /* 13px */
+  --text-label: 0.6875rem;         /* 11px */
+  --text-body: 0.875rem;           /* 14px */
+  --text-helper: 0.75rem;          /* 12px */
+  --text-kpi: 1.75rem;             /* 28px */
+
+  /* Transitions */
+  --ease-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --duration-fast: 150ms;
+  --duration-normal: 200ms;
+  --duration-slow: 300ms;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  background: #FAFAF9;
+  color: #1C1917;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+
+/* --- Scrollbar --- */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #D6D3D1; border-radius: 10px; }
+
+/* --- Focus --- */
+*:focus-visible { outline: 2px solid #0D9488; outline-offset: 2px; border-radius: 8px; }
+
+/* --- Transitions --- */
+button, a, input, select, textarea { transition: all var(--duration-normal) ease; }
+
+/* --- Card hover --- */
+.card-hover { transition: transform var(--duration-normal) ease, box-shadow var(--duration-normal) ease; }
+.card-hover:hover { transform: translateY(-2px); box-shadow: var(--shadow-surface-2); }
+
+/* --- Table --- */
+.table-row-hover:hover { background-color: #F0FDFA; }
+
+/* --- Modal / Overlay --- */
+.modal-overlay { background-color: rgba(28,25,23,0.25); backdrop-filter: blur(8px); }
+
+/* --- Animations --- */
+@keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:0.4} }
+.animate-pulse-dot { animation: pulse-dot 2s cubic-bezier(0.4,0,0.6,1) infinite; }
+
+@keyframes recording-pulse {
+  0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(239,68,68,0.4)}
+  50%{transform:scale(1.05);box-shadow:0 0 0 8px rgba(239,68,68,0)}
+}
+.animate-recording { animation: recording-pulse 1.5s ease-in-out infinite; }
+
+@keyframes fade-in { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:translateY(0)} }
+.animate-fade-in { animation: fade-in var(--duration-slow) ease-out; }
+
+@keyframes slide-up { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+.animate-slide-up { animation: slide-up 0.35s ease-out; }
+
+@keyframes toast-in { from{opacity:0;transform:translateY(-8px)} to{opacity:1;transform:translateY(0)} }
+.animate-toast-in { animation: toast-in var(--duration-normal) ease-out; }
+
+/* --- Gradients --- */
+.gradient-warm { background: linear-gradient(135deg,#0D9488 0%,#2DD4BF 50%,#5EEAD4 100%); }
+.gradient-soft { background: linear-gradient(135deg,#F0FDFA 0%,#CCFBF1 100%); }
+
+/* --- Responsive tab scroll --- */
+.tabs-scroll { overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; }
+.tabs-scroll::-webkit-scrollbar { display: none; }
+
+/* --- Responsive table wrapper --- */
+.table-responsive {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+
+/* --- Sidebar transition --- */
+.sidebar-transition { transition: width var(--duration-slow) var(--ease-out), transform var(--duration-slow) var(--ease-out); }
+.content-transition { transition: margin-left var(--duration-slow) var(--ease-out); }
+
+/* --- Mobile overlay --- */
+.sidebar-overlay {
+  position: fixed; inset: 0; z-index: 35;
+  background: rgba(28,25,23,0.25); backdrop-filter: blur(4px);
+}
+
+/* --- Content Grid Primitives --- */
+.content-grid-split-start {
+  display: grid;
+  grid-template-columns: minmax(280px, 22%) minmax(0, 1fr);
+  gap: var(--section-gap);
+}
+.content-grid-split-end {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 28%);
+  gap: var(--section-gap);
+}
+.content-grid-triage {
+  display: grid;
+  grid-template-columns: minmax(260px, 20%) minmax(0, 1fr) minmax(280px, 22%);
+  gap: var(--section-gap);
+}
+@media (max-width: 1023px) {
+  .content-grid-split-start,
+  .content-grid-split-end,
+  .content-grid-triage {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* --- Print --- */
+@media print {
+  .no-print { display: none !important; }
+  /* Reports / receipts: render against white, drop the dashboard chrome,
+     and force tables to break on row boundaries so a long invoice list
+     spans pages cleanly instead of cutting through cells. */
+  .print-only { display: block !important; }
+  body { background: white !important; }
+  .print-page { padding: 0 !important; max-width: none !important; }
+  .print-page table { page-break-inside: auto; }
+  .print-page tr   { page-break-inside: avoid; page-break-after: auto; }
+  .print-page thead { display: table-header-group; }
+  .print-page .page-break { page-break-before: always; }
+}

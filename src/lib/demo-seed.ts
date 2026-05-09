@@ -718,8 +718,13 @@ export async function seedDemoTenant(opts: {
   // with signed notes + invoices, today is mid-flow, future days are
   // scheduled bookings for the upcoming-week dashboards. Bump these
   // constants when the window goes stale (after 2026-05-18).
-  const WINDOW_START = new Date(2026, 4, 7);  // 2026-05-07 (month 4 = May)
-  const WINDOW_DAYS = 12;                     // through 2026-05-18 inclusive
+  //
+  // UTC-anchored. The seeder runs on a Karachi-tz box (UTC+5) and
+  // Postgres truncates timestamptz → date in UTC, so a local-tz Date
+  // for May 7 stores as May 6. Keeping every date math in UTC avoids
+  // the off-by-one.
+  const WINDOW_START = new Date(Date.UTC(2026, 4, 7)); // 2026-05-07 (month 4 = May)
+  const WINDOW_DAYS = 12;                              // through 2026-05-18 inclusive
   const TARGET_APPT_COUNT = 50;
 
   type Slot = { doctorId: string; date: string; startTime: string };
@@ -742,10 +747,13 @@ export async function seedDemoTenant(opts: {
     return null;
   }
 
-  // "Today" boundary for past/future status decisions. Local midnight,
-  // matching daysAgo()/daysFromNow() elsewhere in this file.
+  // "Today" boundary for past/future status decisions. UTC midnight
+  // to match the WINDOW_START construction above and the @db.Date
+  // round-trip — a local-midnight today on a Karachi-tz box would
+  // compare as May-9-1900Z and silently misclassify same-UTC-day
+  // appointments as future.
   const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  today.setUTCHours(0, 0, 0, 0);
 
   let aptCounter = 1;
   let pastAppointmentsCount = 0;
@@ -764,8 +772,8 @@ export async function seedDemoTenant(opts: {
 
   for (let d = 0; d < WINDOW_DAYS && createdAppts < TARGET_APPT_COUNT; d++) {
     const date = new Date(WINDOW_START);
-    date.setDate(WINDOW_START.getDate() + d);
-    date.setHours(0, 0, 0, 0);
+    date.setUTCDate(WINDOW_START.getUTCDate() + d);
+    date.setUTCHours(0, 0, 0, 0);
 
     const isPast = date < today;
     const isToday = date.getTime() === today.getTime();

@@ -761,14 +761,18 @@ export async function seedDemoTenant(opts: {
   let consultationNotesCount = 0;
   let prescriptionsCount = 0;
 
-  // Day-driven loop. For each day in the window schedule ~5 visits;
-  // patients round-robin, doctor = patient's assigned doctor. Status
-  // comes from the day's relation to "today" — past days entirely
-  // COMPLETED, today is mid-flow (first two slots done, third
-  // CHECKED_IN, rest SCHEDULED), future days entirely SCHEDULED.
+  // Day-driven loop. Distribute TARGET_APPT_COUNT across every day in
+  // the window — `ceil(remaining / daysLeft)` front-loads the
+  // remainder so the first day or two carries 5 visits and the rest
+  // carry 4 (50 across 12 days = 5,5,4,4,4,4,4,4,4,4,4,4). Every day
+  // gets at least floor(TARGET/DAYS), so the calendar spans the full
+  // window even at the lower end of "around 50". Patients round-robin,
+  // doctor = patient's assigned doctor. Status follows the day's
+  // relation to "today" — past days entirely COMPLETED, today is
+  // mid-flow (first two slots done, third CHECKED_IN, rest
+  // SCHEDULED), future days entirely SCHEDULED.
   let createdAppts = 0;
   let patientCursor = 0;
-  const apptsPerDay = Math.ceil(TARGET_APPT_COUNT / WINDOW_DAYS);
 
   for (let d = 0; d < WINDOW_DAYS && createdAppts < TARGET_APPT_COUNT; d++) {
     const date = new Date(WINDOW_START);
@@ -778,7 +782,11 @@ export async function seedDemoTenant(opts: {
     const isPast = date < today;
     const isToday = date.getTime() === today.getTime();
 
-    for (let k = 0; k < apptsPerDay && createdAppts < TARGET_APPT_COUNT; k++) {
+    const remaining = TARGET_APPT_COUNT - createdAppts;
+    const daysLeft = WINDOW_DAYS - d;
+    const apptsThisDay = Math.ceil(remaining / daysLeft);
+
+    for (let k = 0; k < apptsThisDay && createdAppts < TARGET_APPT_COUNT; k++) {
       const pat = patients[patientCursor % patients.length];
       patientCursor++;
       const slot = nextSlot(pat.doctorId, date);

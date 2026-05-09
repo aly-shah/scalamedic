@@ -16,7 +16,7 @@
  *   - Most past invoices PAID, some PENDING/PARTIAL for the dashboard's
  *     "outstanding" widgets to have something to show
  */
-import { createHash } from "crypto";
+import { createHash, randomBytes } from "crypto";
 import { prisma } from "@/lib/prisma";
 import { hashPassword } from "@/lib/auth";
 import { Prisma } from "@prisma/client";
@@ -38,6 +38,11 @@ export type DemoSeedSummary = {
   prescriptions: number;
   labTests: number;
   invoices: { paid: number; pendingOrPartial: number };
+  pharmacyLines: number;
+  products: number;
+  packages: number;
+  patientPackages: number;
+  qrTokens: { appointment: number; invoice: number };
   insurances: number;
   claims: Record<"DRAFT" | "SUBMITTED" | "IN_REVIEW" | "APPROVED" | "PARTIAL" | "DENIED" | "PAID" | "APPEALED", number>;
 };
@@ -199,6 +204,69 @@ const TREATMENT_LINES = [
   { description: "Routine skin biopsy + histopathology", unit: 7500, taxRate: 0.03 },
 ];
 
+// Pharmacy retail catalog the demo branch dispenses. Tax 0.08 (cosmetic
+// rate from lib/tax-rates.ts) since most clinic OTC retail sits in the
+// cosmetic bucket — admin can reclassify per-product later. SKU prefix
+// "DEMO-" makes these unmistakably demo data; the seeder upserts by SKU
+// so re-runs keep the same product ids.
+const DEMO_PRODUCTS = [
+  { sku: "DEMO-CL-01",   name: "Gentle Foaming Cleanser",      category: "CLEANSER"   as const, brand: "DermaPro",   costPrice: 850,  sellPrice: 1500, unit: "tube",   quantity: 40 },
+  { sku: "DEMO-MOIST-01",name: "Hydra Daily Moisturizer",      category: "MOISTURIZER" as const, brand: "DermaPro",   costPrice: 1100, sellPrice: 2200, unit: "bottle", quantity: 28 },
+  { sku: "DEMO-SPF-01",  name: "Tinted SPF 50+",                category: "SUNSCREEN"  as const, brand: "SkinShield", costPrice: 1400, sellPrice: 2800, unit: "tube",   quantity: 35 },
+  { sku: "DEMO-SER-01",  name: "Vitamin C 15% Serum",           category: "SERUM"      as const, brand: "DermaPro",   costPrice: 1800, sellPrice: 3500, unit: "bottle", quantity: 22 },
+  { sku: "DEMO-SER-02",  name: "Niacinamide 10% Serum",         category: "SERUM"      as const, brand: "DermaPro",   costPrice: 1600, sellPrice: 3200, unit: "bottle", quantity: 18 },
+  { sku: "DEMO-SER-03",  name: "Retinol 0.5% Serum",            category: "SERUM"      as const, brand: "SkinShield", costPrice: 2200, sellPrice: 4500, unit: "bottle", quantity: 14 },
+  { sku: "DEMO-TRT-01",  name: "Adapalene 0.1% Gel",            category: "TREATMENT"  as const, brand: "Generic",    costPrice: 450,  sellPrice: 950,  unit: "tube",   quantity: 50 },
+  { sku: "DEMO-TRT-02",  name: "Benzoyl Peroxide 2.5% Gel",     category: "TREATMENT"  as const, brand: "Generic",    costPrice: 380,  sellPrice: 800,  unit: "tube",   quantity: 45 },
+  { sku: "DEMO-SUP-01",  name: "Biotin 5000mcg (60 caps)",      category: "SUPPLEMENT" as const, brand: "VitaCo",     costPrice: 1200, sellPrice: 2400, unit: "bottle", quantity: 30 },
+  { sku: "DEMO-SUP-02",  name: "Zinc Picolinate (60 caps)",     category: "SUPPLEMENT" as const, brand: "VitaCo",     costPrice: 900,  sellPrice: 1800, unit: "bottle", quantity: 25 },
+  { sku: "DEMO-HAIR-01", name: "Minoxidil 5% Solution",         category: "HAIR"       as const, brand: "RegrowRx",   costPrice: 1700, sellPrice: 3400, unit: "bottle", quantity: 20 },
+  { sku: "DEMO-TOOL-01", name: "Soft-bristle facial brush",     category: "TOOL"       as const, brand: "Generic",    costPrice: 250,  sellPrice: 600,  unit: "piece",  quantity: 60 },
+];
+
+// Multi-session bundles. Names prefixed "[Demo]" so they're identifiable
+// in the catalog and we can clean them up later via name filter without
+// touching tenant-supplied packages. PackageBranch ties them to the demo
+// branch; PackageTreatment children carry denormalized snapshots
+// (treatmentId optional — set null since the demo doesn't seed a real
+// Treatment catalog).
+const DEMO_PACKAGES = [
+  {
+    name: "[Demo] Acne Clearance — 6 sessions",
+    description: "Six fortnightly sessions: chemical peel + extraction + photofacial.",
+    price: 42000, validityDays: 180, maxRedemptions: 6,
+    treatments: [
+      { name: "Chemical Peel - Glycolic 30%", sessions: 3 },
+      { name: "Acne extraction facial",       sessions: 3 },
+    ],
+  },
+  {
+    name: "[Demo] Laser Hair Reduction — Full Face × 6",
+    description: "Six sessions of full-face LHR, spaced 4-6 weeks apart.",
+    price: 60000, validityDays: 360, maxRedemptions: 6,
+    treatments: [
+      { name: "Laser Hair Reduction - Full Face (1 session)", sessions: 6 },
+    ],
+  },
+  {
+    name: "[Demo] HydraFacial Glow — 4 sessions",
+    description: "Four monthly HydraFacials for sustained radiance.",
+    price: 32000, validityDays: 150, maxRedemptions: 4,
+    treatments: [
+      { name: "HydraFacial - Signature", sessions: 4 },
+    ],
+  },
+  {
+    name: "[Demo] Anti-Ageing Bundle — 3 sessions",
+    description: "Three sessions of microneedling with PRP plus a Botox top-up.",
+    price: 70000, validityDays: 240, maxRedemptions: 3,
+    treatments: [
+      { name: "Microneedling with PRP",         sessions: 3 },
+      { name: "Botox - Glabella (per session)", sessions: 1 },
+    ],
+  },
+];
+
 // ---------- Helpers ----------
 
 function pick<T>(arr: T[], idx: number): T { return arr[((idx % arr.length) + arr.length) % arr.length]; }
@@ -230,7 +298,7 @@ async function wipeDemoTenantData(tenantId: string): Promise<void> {
   const branches = await prisma.branch.findMany({ where: { tenantId }, select: { id: true } });
   const branchIds = branches.map((b) => b.id);
 
-  const [patients, appointments, invoices, users] = await Promise.all([
+  const [patients, appointments, invoices, users, leads] = await Promise.all([
     branchIds.length
       ? prisma.patient.findMany({ where: { branchId: { in: branchIds } }, select: { id: true } })
       : Promise.resolve([]),
@@ -241,12 +309,16 @@ async function wipeDemoTenantData(tenantId: string): Promise<void> {
       ? prisma.invoice.findMany({ where: { branchId: { in: branchIds } }, select: { id: true } })
       : Promise.resolve([]),
     prisma.user.findMany({ where: { tenantId }, select: { id: true } }),
+    branchIds.length
+      ? prisma.lead.findMany({ where: { branchId: { in: branchIds } }, select: { id: true } })
+      : Promise.resolve([]),
   ]);
 
   const patientIds = patients.map((p) => p.id);
   const appointmentIds = appointments.map((a) => a.id);
   const invoiceIds = invoices.map((i) => i.id);
   const userIds = users.map((u) => u.id);
+  const leadIds = leads.map((l) => l.id);
 
   await prisma.$transaction(async (tx) => {
     // v58 — Insurance claims block invoice deletion (Restrict FK).
@@ -298,6 +370,21 @@ async function wipeDemoTenantData(tenantId: string): Promise<void> {
       await tx.appointment.deleteMany({ where: { id: { in: appointmentIds } } });
     }
 
+    // Cold-lead cleanup. Lead.assignedToId Restricts to User and
+    // CallLog.userId Restricts to User, so any CallLog/CommunicationLog
+    // attributed to a demo user (with no patient match — typical for
+    // cold dialer rows) blocks the user delete below. Wipe by user
+    // and by lead to catch every path.
+    if (userIds.length) {
+      await tx.callLog.deleteMany({ where: { userId: { in: userIds } } });
+      await tx.communicationLog.deleteMany({ where: { sentById: { in: userIds } } });
+    }
+    if (leadIds.length) {
+      await tx.callLog.deleteMany({ where: { leadId: { in: leadIds } } });
+      await tx.communicationLog.deleteMany({ where: { leadId: { in: leadIds } } });
+      await tx.lead.deleteMany({ where: { id: { in: leadIds } } });
+    }
+
     if (patientIds.length) {
       await tx.patient.deleteMany({ where: { id: { in: patientIds } } });
     }
@@ -310,6 +397,14 @@ async function wipeDemoTenantData(tenantId: string): Promise<void> {
       await tx.doctorLeave.deleteMany({ where: { OR: [{ doctorId: { in: userIds } }, { approvedById: { in: userIds } }] } });
       await tx.blockedSlot.deleteMany({ where: { OR: [{ doctorId: { in: userIds } }, { createdById: { in: userIds } }] } });
       await tx.revokedSession.deleteMany({ where: { userId: { in: userIds } } });
+      // AuditLog: scoped wipe by userId so we drop only this tenant's
+      // audit history. AuditLog has no tenantId column (it's global,
+      // FK userId is SetNull), so a demo-cloned-from-prod tenant ships
+      // with prod's full audit trail visible under /admin/audit until
+      // we explicitly clear it. AuditLog.userId is SetNull on user
+      // delete, so technically not required for FK integrity — done
+      // here for PII reasons.
+      await tx.auditLog.deleteMany({ where: { userId: { in: userIds } } });
       await tx.user.deleteMany({ where: { id: { in: userIds } } });
     }
   }, { timeout: 60000 });
@@ -427,6 +522,90 @@ export async function seedDemoTenant(opts: {
     });
   }
 
+  // ---- Demo product catalog ----
+  // Upserted by SKU so re-runs reuse the same product ids (preserves
+  // any existing references — e.g. invoice items keyed to a product
+  // that the wipe didn't touch in earlier seeder versions).
+  const productRecords: Array<{ id: string; sku: string; sellPrice: number; name: string }> = [];
+  for (const p of DEMO_PRODUCTS) {
+    const product = await prisma.product.upsert({
+      where: { sku: p.sku },
+      update: {
+        name: p.name,
+        category: p.category,
+        brand: p.brand,
+        costPrice: new Prisma.Decimal(p.costPrice),
+        sellPrice: new Prisma.Decimal(p.sellPrice),
+        quantity: p.quantity,
+        unit: p.unit,
+        branchId: branch.id,
+        isActive: true,
+      },
+      create: {
+        sku: p.sku,
+        name: p.name,
+        category: p.category,
+        brand: p.brand,
+        costPrice: new Prisma.Decimal(p.costPrice),
+        sellPrice: new Prisma.Decimal(p.sellPrice),
+        quantity: p.quantity,
+        unit: p.unit,
+        branchId: branch.id,
+        isActive: true,
+      },
+    });
+    productRecords.push({ id: product.id, sku: p.sku, sellPrice: p.sellPrice, name: p.name });
+  }
+
+  // ---- Demo package catalog ----
+  // Package has no tenantId/branchId (it's global); we tag identifiers
+  // with a "[Demo] " prefix and tie availability via PackageBranch.
+  // findFirst-or-create by name so re-runs reuse the same package id.
+  // PackageTreatment children are wipe-and-recreate so name/sessions
+  // updates from the constants land on next seed.
+  const packageRecords: Array<{ id: string; name: string; price: number; treatments: Array<{ name: string; sessions: number }> }> = [];
+  for (const pkg of DEMO_PACKAGES) {
+    let p = await prisma.package.findFirst({ where: { name: pkg.name } });
+    if (!p) {
+      p = await prisma.package.create({
+        data: {
+          name: pkg.name,
+          description: pkg.description,
+          price: new Prisma.Decimal(pkg.price),
+          validityDays: pkg.validityDays,
+          maxRedemptions: pkg.maxRedemptions,
+          isActive: true,
+        },
+      });
+    } else {
+      // Refresh price/description/validity so constants stay authoritative.
+      await prisma.package.update({
+        where: { id: p.id },
+        data: {
+          description: pkg.description,
+          price: new Prisma.Decimal(pkg.price),
+          validityDays: pkg.validityDays,
+          maxRedemptions: pkg.maxRedemptions,
+          isActive: true,
+        },
+      });
+    }
+    await prisma.packageBranch.upsert({
+      where: { packageId_branchId: { packageId: p.id, branchId: branch.id } },
+      update: {},
+      create: { packageId: p.id, branchId: branch.id },
+    });
+    await prisma.packageTreatment.deleteMany({ where: { packageId: p.id } });
+    await prisma.packageTreatment.createMany({
+      data: pkg.treatments.map((t) => ({
+        packageId: p!.id,
+        name: t.name,
+        sessions: t.sessions,
+      })),
+    });
+    packageRecords.push({ id: p.id, name: pkg.name, price: pkg.price, treatments: pkg.treatments });
+  }
+
   const passwordHash = await hashPassword(opts.password);
 
   // ---- Users ----
@@ -542,8 +721,16 @@ export async function seedDemoTenant(opts: {
     patients.push({ id: p.id, gender, doctorId: doctor.id, presentation });
   }
 
-  // ---- Appointments ----
-  // Past 30 days + next 21. Avoid double-booking same doctor in same slot.
+  // ---- Appointments — pinned May 7-18, 2026 window, ~50 slots ----
+  // Pinned date window so the demo always shows a populated calendar
+  // straddling the seed run's "today": past days are completed visits
+  // with signed notes + invoices, today is mid-flow, future days are
+  // scheduled bookings for the upcoming-week dashboards. Bump these
+  // constants when the window goes stale (after 2026-05-18).
+  const WINDOW_START = new Date(2026, 4, 7);  // 2026-05-07 (month 4 = May)
+  const WINDOW_DAYS = 12;                     // through 2026-05-18 inclusive
+  const TARGET_APPT_COUNT = 50;
+
   type Slot = { doctorId: string; date: string; startTime: string };
   const usedSlots = new Set<string>();
   const slotKey = (s: Slot) => `${s.doctorId}|${s.date}|${s.startTime}`;
@@ -564,22 +751,58 @@ export async function seedDemoTenant(opts: {
     return null;
   }
 
+  // "Today" boundary for past/future status decisions. Local midnight,
+  // matching daysAgo()/daysFromNow() elsewhere in this file.
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
   let aptCounter = 1;
   let pastAppointmentsCount = 0;
   let upcomingAppointmentsCount = 0;
   let consultationNotesCount = 0;
   let prescriptionsCount = 0;
 
-  for (let i = 0; i < patients.length; i++) {
-    const pat = patients[i];
+  // Day-driven loop. For each day in the window schedule ~5 visits;
+  // patients round-robin, doctor = patient's assigned doctor. Status
+  // comes from the day's relation to "today" — past days entirely
+  // COMPLETED, today is mid-flow (first two slots done, third
+  // CHECKED_IN, rest SCHEDULED), future days entirely SCHEDULED.
+  let createdAppts = 0;
+  let patientCursor = 0;
+  const apptsPerDay = Math.ceil(TARGET_APPT_COUNT / WINDOW_DAYS);
 
-    // 1-2 past appointments + maybe 1 upcoming
-    const pastCount = 1 + rand(i + 600, 2);
-    for (let k = 0; k < pastCount; k++) {
-      const offset = 1 + rand(i * 7 + k * 3 + 700, 30);
-      const date = daysAgo(offset);
+  for (let d = 0; d < WINDOW_DAYS && createdAppts < TARGET_APPT_COUNT; d++) {
+    const date = new Date(WINDOW_START);
+    date.setDate(WINDOW_START.getDate() + d);
+    date.setHours(0, 0, 0, 0);
+
+    const isPast = date < today;
+    const isToday = date.getTime() === today.getTime();
+
+    for (let k = 0; k < apptsPerDay && createdAppts < TARGET_APPT_COUNT; k++) {
+      const pat = patients[patientCursor % patients.length];
+      patientCursor++;
       const slot = nextSlot(pat.doctorId, date);
       if (!slot) continue;
+
+      const status: "COMPLETED" | "SCHEDULED" | "CHECKED_IN" =
+        isPast ? "COMPLETED"
+        : isToday && k < 2 ? "COMPLETED"
+        : isToday && k === 2 ? "CHECKED_IN"
+        : "SCHEDULED";
+
+      const [sH, sM] = slot.startTime.split(":").map(Number);
+      const slotStartMs = date.getTime() + (sH * 60 + sM) * 60_000;
+      const checkin = status !== "SCHEDULED"
+        ? new Date(slotStartMs + 5 * 60_000)
+        : null;
+      const checkout = status === "COMPLETED"
+        ? new Date(slotStartMs + 35 * 60_000)
+        : null;
+      const stage =
+        status === "COMPLETED" ? "CHECKOUT"
+        : status === "CHECKED_IN" ? "WAITING"
+        : "BOOKED";
 
       const apt = await prisma.appointment.create({
         data: {
@@ -592,19 +815,22 @@ export async function seedDemoTenant(opts: {
           startTime: slot.startTime,
           endTime: slot.endTime,
           durationMinutes: 30,
-          type: k === 0 ? "CONSULTATION" : pick(["FOLLOW_UP", "REVIEW"] as const, k),
-          status: "COMPLETED",
-          workflowStage: "CHECKOUT",
-          createdById: pick(receptionists, i + k).id,
-          createdAt: daysAgo(offset + 2),
-          checkinTime: new Date(date.getTime() + (parseInt(slot.startTime) * 60 + 5) * 60000),
-          checkoutTime: new Date(date.getTime() + (parseInt(slot.startTime) * 60 + 35) * 60000),
+          type: pick(["CONSULTATION", "FOLLOW_UP", "PROCEDURE", "REVIEW"] as const, createdAppts),
+          status,
+          workflowStage: stage,
+          createdById: pick(receptionists, createdAppts).id,
+          // Booking-time = 2 days before the slot for past visits, now for upcoming.
+          createdAt: isPast ? new Date(slotStartMs - 2 * 86_400_000) : new Date(),
+          checkinTime: checkin,
+          checkoutTime: checkout,
         },
       });
-      pastAppointmentsCount++;
 
-      // 70% have a signed consultation note
-      if (rand(i + k + 800, 100) < 70) {
+      if (status === "COMPLETED") pastAppointmentsCount++;
+      else upcomingAppointmentsCount++;
+
+      // Signed consultation note for ~70% of completed visits.
+      if (status === "COMPLETED" && rand(createdAppts + 800, 100) < 70) {
         const presentation = pat.presentation;
         await prisma.consultationNote.create({
           data: {
@@ -620,25 +846,22 @@ export async function seedDemoTenant(opts: {
             treatmentPlan: presentation.plan,
             advice: presentation.advice,
             isSigned: true,
-            // CHECK signedAt >= createdAt (v43). Demo dates are in the
-            // past, so we pin createdAt explicitly to the appointment
-            // start, then sign at checkout. Same goes for updatedAt.
-            createdAt: apt.checkinTime ?? apt.checkoutTime ?? apt.date,
-            updatedAt: apt.checkoutTime ?? apt.date,
-            signedAt: apt.checkoutTime,
+            // CHECK signedAt >= createdAt (v43): pin createdAt to checkin
+            // so signed-at-checkout ordering holds.
+            createdAt: checkin ?? apt.date,
+            updatedAt: checkout ?? apt.date,
+            signedAt: checkout,
             signedById: pat.doctorId,
-            // CHECK signedcontenthash_when_signed: when isSigned=true
-            // we MUST stamp a 64-char hex hash. We don't recompute the
-            // canonical clinical hash here — a deterministic fake
-            // (SHA-256 of "demo:<appointmentId>") is enough for the
-            // demo and clearly identifiable as non-production.
+            // CHECK signedcontenthash_when_signed: 64-char hex required
+            // when isSigned=true. Deterministic fake (sha256 "demo:<id>")
+            // — not the real canonical hash, identifiable as non-prod.
             signedContentHash: hashFor(`demo:${apt.id}`),
           },
         });
         consultationNotesCount++;
 
-        // Rx for ~60% of signed notes
-        if (presentation.rx.length && rand(i + k + 900, 100) < 60) {
+        // Rx for ~60% of signed notes.
+        if (presentation.rx.length && rand(createdAppts + 900, 100) < 60) {
           await prisma.prescription.create({
             data: {
               patientId: pat.id,
@@ -661,33 +884,8 @@ export async function seedDemoTenant(opts: {
           prescriptionsCount++;
         }
       }
-    }
 
-    // ~40% have an upcoming appointment
-    if (rand(i + 950, 100) < 40) {
-      const offset = 1 + rand(i + 1100, 21);
-      const date = daysFromNow(offset);
-      const slot = nextSlot(pat.doctorId, date);
-      if (slot) {
-        await prisma.appointment.create({
-          data: {
-            appointmentCode: `APT-${pad(aptCounter++, 4)}`,
-            patientId: pat.id,
-            doctorId: pat.doctorId,
-            branchId: branch.id,
-            tenantId: opts.tenantId,
-            date,
-            startTime: slot.startTime,
-            endTime: slot.endTime,
-            durationMinutes: 30,
-            type: pick(["FOLLOW_UP", "PROCEDURE", "REVIEW", "CONSULTATION"] as const, i),
-            status: "SCHEDULED",
-            workflowStage: "BOOKED",
-            createdById: pick(receptionists, i).id,
-          },
-        });
-        upcomingAppointmentsCount++;
-      }
+      createdAppts++;
     }
   }
 
@@ -731,8 +929,18 @@ export async function seedDemoTenant(opts: {
 
   let paidInvoices = 0;
   let openInvoices = 0;
+  let pharmacyLinesAdded = 0;
   let invCounter = 1;
   const year = new Date().getFullYear();
+
+  type SeedLine = {
+    description: string;
+    qty: number;
+    unit: number;
+    taxRate: number;
+    productId?: string;
+    packageId?: string;
+  };
 
   for (let i = 0; i < completedApts.length; i++) {
     const apt = completedApts[i];
@@ -740,11 +948,26 @@ export async function seedDemoTenant(opts: {
     const consultLine = TREATMENT_LINES[0];
     const doctor = doctors.find((d) => d.id === apt.doctorId)!;
 
-    // Two line items: consultation + treatment
-    const lines = [
+    // Consultation + treatment, plus an optional pharmacy line on
+    // ~30% of visits — mirrors the dispense-on-checkout flow where a
+    // doctor's recommended retail product gets billed alongside the
+    // consult. Tax 0.08 (cosmetic) for OTC retail.
+    const lines: SeedLine[] = [
       { description: consultLine.description, qty: 1, unit: doctor.consultationFee, taxRate: consultLine.taxRate },
-      { description: treatment.description, qty: 1, unit: treatment.unit, taxRate: treatment.taxRate },
+      { description: treatment.description,   qty: 1, unit: treatment.unit,         taxRate: treatment.taxRate },
     ];
+    if (productRecords.length > 0 && rand(i + 1700, 100) < 30) {
+      const product = pick(productRecords, i);
+      const qty = 1 + rand(i + 1750, 2);
+      lines.push({
+        description: product.name,
+        qty,
+        unit: product.sellPrice,
+        taxRate: 0.08,
+        productId: product.id,
+      });
+      pharmacyLinesAdded++;
+    }
 
     const subtotal = lines.reduce((s, l) => s + l.qty * l.unit, 0);
     const tax = lines.reduce((s, l) => s + Math.round(l.qty * l.unit * l.taxRate * 100) / 100, 0);
@@ -778,6 +1001,8 @@ export async function seedDemoTenant(opts: {
             unitPrice: new Prisma.Decimal(l.unit),
             tax: new Prisma.Decimal(Math.round(l.qty * l.unit * l.taxRate * 100) / 100),
             total: new Prisma.Decimal(l.qty * l.unit + Math.round(l.qty * l.unit * l.taxRate * 100) / 100),
+            productId: l.productId,
+            packageId: l.packageId,
           })),
         },
       },
@@ -798,6 +1023,128 @@ export async function seedDemoTenant(opts: {
 
     if (status === "PAID") paidInvoices++;
     else openInvoices++;
+  }
+
+  // ---- Package sales (dedicated PAID invoices, no appointment link) ----
+  // Six representative package purchases spread across patients. Each
+  // gets its own invoice (status PAID), one InvoiceItem with packageId,
+  // a Payment row, and a PatientPackage with remainingSessions JSON
+  // matching the package's PackageTreatment definitions. Tax 0.08
+  // (cosmetic) — packages are predominantly aesthetic bundles.
+  let patientPackagesCount = 0;
+  if (packageRecords.length > 0) {
+    const SALES = Math.min(6, patients.length);
+    for (let i = 0; i < SALES; i++) {
+      const pat = patients[(i * 5 + 3) % patients.length];
+      const pkg = pick(packageRecords, i);
+
+      const purchaseDate = daysAgo(rand(i + 2200, 18) + 1);
+      const expiry = new Date(purchaseDate);
+      expiry.setDate(expiry.getDate() + 180);
+
+      const subtotal = pkg.price;
+      const taxAmount = Math.round(pkg.price * 0.08 * 100) / 100;
+      const total = subtotal + taxAmount;
+
+      const remaining = Object.fromEntries(pkg.treatments.map((t) => [t.name, t.sessions]));
+
+      const invoice = await prisma.invoice.create({
+        data: {
+          invoiceNumber: `INV-${year}-${pad(invCounter++, 4)}`,
+          patientId: pat.id,
+          branchId: branch.id,
+          tenantId: opts.tenantId,
+          subtotal: new Prisma.Decimal(subtotal),
+          discount: new Prisma.Decimal(0),
+          tax: new Prisma.Decimal(taxAmount),
+          total: new Prisma.Decimal(total),
+          amountPaid: new Prisma.Decimal(total),
+          balanceDue: new Prisma.Decimal(0),
+          status: "PAID",
+          createdById: pick(receptionists, i).id,
+          createdAt: purchaseDate,
+          items: {
+            create: [{
+              description: pkg.name,
+              quantity: 1,
+              unitPrice: new Prisma.Decimal(subtotal),
+              tax: new Prisma.Decimal(taxAmount),
+              total: new Prisma.Decimal(total),
+              packageId: pkg.id,
+            }],
+          },
+        },
+      });
+
+      await prisma.payment.create({
+        data: {
+          invoiceId: invoice.id,
+          amount: new Prisma.Decimal(total),
+          method: pick(["CASH", "CARD", "BANK_TRANSFER"] as const, i),
+          status: "COMPLETED",
+          processedById: pick(receptionists, i).id,
+          processedAt: purchaseDate,
+        },
+      });
+
+      await prisma.patientPackage.create({
+        data: {
+          patientId: pat.id,
+          packageId: pkg.id,
+          purchaseDate,
+          expiryDate: expiry,
+          remainingSessions: remaining,
+          status: "ACTIVE",
+          invoiceId: invoice.id,
+        },
+      });
+
+      paidInvoices++;
+      patientPackagesCount++;
+    }
+  }
+
+  // ---- QR tokens (one per appointment + one per appointment-less invoice) ----
+  // Pre-create receipt QRs so they're visible on the demo without
+  // having to "print" first. The token row is just the opaque 16-byte
+  // base64url id (matching lib/qr-tokens.ts:generateRawToken); the URL
+  // printed in the QR is composed at render-time from
+  // NEXT_PUBLIC_QR_BASE_URL with NEXT_PUBLIC_APP_URL fallback (see
+  // components/billing/receipt-bits.tsx). Set the env on the demo box
+  // to control the encoded host. Per qr-tokens.ts, appointment-scoped
+  // tokens are reused across that appointment's invoices, so we only
+  // create invoice-scoped tokens for invoices with no appointment link
+  // (i.e. package sales).
+  const aptForQr = await prisma.appointment.findMany({
+    where: { branchId: branch.id },
+    select: { id: true },
+  });
+  let qrAppointmentTokens = 0;
+  if (aptForQr.length) {
+    await prisma.qrToken.createMany({
+      data: aptForQr.map((a) => ({
+        token: randomBytes(16).toString("base64url"),
+        appointmentId: a.id,
+        createdById: adminUser.id,
+      })),
+    });
+    qrAppointmentTokens = aptForQr.length;
+  }
+
+  const standaloneInvoices = await prisma.invoice.findMany({
+    where: { branchId: branch.id, appointmentId: null },
+    select: { id: true },
+  });
+  let qrInvoiceTokens = 0;
+  if (standaloneInvoices.length) {
+    await prisma.qrToken.createMany({
+      data: standaloneInvoices.map((inv) => ({
+        token: randomBytes(16).toString("base64url"),
+        invoiceId: inv.id,
+        createdById: adminUser.id,
+      })),
+    });
+    qrInvoiceTokens = standaloneInvoices.length;
   }
 
   // ---- v59/v60 demo: Insurance + Claims ----
@@ -987,6 +1334,11 @@ export async function seedDemoTenant(opts: {
     prescriptions: prescriptionsCount,
     labTests: labTestsCount,
     invoices: { paid: paidInvoices, pendingOrPartial: openInvoices },
+    pharmacyLines: pharmacyLinesAdded,
+    products: productRecords.length,
+    packages: packageRecords.length,
+    patientPackages: patientPackagesCount,
+    qrTokens: { appointment: qrAppointmentTokens, invoice: qrInvoiceTokens },
     insurances: insurancesCount,
     claims: claimCounts,
   };

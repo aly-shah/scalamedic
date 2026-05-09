@@ -35,15 +35,14 @@ export async function GET() {
 
     // drnakhodas.com gates GET /api/appointments behind a shared
     // Bearer token (CRM_API_KEY on the website end). We send the same
-    // value as WEBSITE_API_KEY so the upstream accepts the request —
-    // without it, every read 401s and the /admin/updates page renders
-    // empty.
+    // value as WEBSITE_API_KEY so the upstream accepts the request.
+    // When WEBSITE_API_KEY is unset (demo deployments, dev boxes,
+    // standalone tenants without the website integration) we render
+    // an empty inbox cleanly instead of returning 500 — there's no
+    // configured upstream to read.
     const apiKey = process.env.WEBSITE_API_KEY;
     if (!apiKey) {
-      return NextResponse.json(
-        { success: false, error: "WEBSITE_API_KEY not configured on this box" },
-        { status: 500 },
-      );
+      return NextResponse.json({ success: true, count: 0, data: [] });
     }
 
     // Fetch upstream rows + local overrides in parallel. The upstream

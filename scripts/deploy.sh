@@ -1,19 +1,24 @@
 #!/usr/bin/env bash
-# ScalaMedic Demo deploy — runs on the crm box (the demo lives at
-# /var/www/medicore-demo, port 3004, DB medicore_demo). Forked from
-# the production deploy.sh; differences are at the top: APP_DIR,
-# PM2_PROC, HEALTH_URL all point at the demo. WhatsApp sidecar
-# block removed — that's prod-only.
+# ScalaMedic Demo deploy — runs on the demo app box.
+# Demo lives at /var/www/medicore-demo, port 3004, DB medicore_demo.
+# Forked from the production deploy.sh; differences are at the top
+# (APP_DIR, PM2_PROC, HEALTH_URL) and the WhatsApp sidecar block is
+# removed (that's prod-only).
 #
 # Ordering: regenerate Prisma client → apply pending migrations →
 # build → pm2 restart → health check.
 #
-# `set -euo pipefail` at the top means any step failing aborts the
-# deploy before pm2 touches anything (npm run build's exit code
-# would otherwise be swallowed by `| tail`).
+# `set -euo pipefail` aborts the deploy before pm2 touches anything
+# if any step fails (npm run build's exit code would otherwise be
+# swallowed by `| tail`).
+#
+# Node version: Prisma 7 requires Node 20.19+. The cybertrust box's
+# system /usr/bin/node is 18.x for the other apps that live there,
+# so we source nvm and pin to Node 20 here. If nvm isn't installed
+# we fall through and let npm/Prisma tell you.
 #
 # Usage (from local machine after pushing to GitHub):
-#   ssh root@crm.drnakhodas.com 'cd /var/www/medicore-demo && git pull && bash scripts/deploy.sh'
+#   ssh root@demo.scalamedic.com 'cd /var/www/medicore-demo && git pull && bash scripts/deploy.sh'
 
 set -euo pipefail
 
@@ -21,6 +26,14 @@ APP_DIR="${APP_DIR:-/var/www/medicore-demo}"
 PM2_PROC="${PM2_PROC:-medicore-demo}"
 HEALTH_URL="${HEALTH_URL:-https://demo.scalamedic.com/api/health}"
 HEALTH_RETRIES="${HEALTH_RETRIES:-10}"
+
+# Source nvm and use Node 20 if available — see header.
+if [ -s "${NVM_DIR:-$HOME/.nvm}/nvm.sh" ]; then
+  export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
+  # shellcheck source=/dev/null
+  . "$NVM_DIR/nvm.sh"
+  nvm use 20 >/dev/null 2>&1 || true
+fi
 
 log()  { printf '\033[36m▶ %s\033[0m\n' "$*"; }
 ok()   { printf '\033[32m✓ %s\033[0m\n' "$*"; }

@@ -523,37 +523,28 @@ export async function seedDemoTenant(opts: {
   }
 
   // ---- Demo product catalog ----
-  // Upserted by SKU so re-runs reuse the same product ids (preserves
-  // any existing references — e.g. invoice items keyed to a product
-  // that the wipe didn't touch in earlier seeder versions).
+  // findFirst-or-create rather than upsert: products_sku_key is a
+  // *partial* unique index (WHERE sku IS NOT NULL), and Postgres'
+  // ON CONFLICT (sku) needs a non-partial unique to match — Prisma's
+  // upsert would 42P10. Reuses the same product id across re-runs so
+  // historic invoice-item references survive.
   const productRecords: Array<{ id: string; sku: string; sellPrice: number; name: string }> = [];
   for (const p of DEMO_PRODUCTS) {
-    const product = await prisma.product.upsert({
-      where: { sku: p.sku },
-      update: {
-        name: p.name,
-        category: p.category,
-        brand: p.brand,
-        costPrice: new Prisma.Decimal(p.costPrice),
-        sellPrice: new Prisma.Decimal(p.sellPrice),
-        quantity: p.quantity,
-        unit: p.unit,
-        branchId: branch.id,
-        isActive: true,
-      },
-      create: {
-        sku: p.sku,
-        name: p.name,
-        category: p.category,
-        brand: p.brand,
-        costPrice: new Prisma.Decimal(p.costPrice),
-        sellPrice: new Prisma.Decimal(p.sellPrice),
-        quantity: p.quantity,
-        unit: p.unit,
-        branchId: branch.id,
-        isActive: true,
-      },
-    });
+    const existing = await prisma.product.findFirst({ where: { sku: p.sku } });
+    const data = {
+      name: p.name,
+      category: p.category,
+      brand: p.brand,
+      costPrice: new Prisma.Decimal(p.costPrice),
+      sellPrice: new Prisma.Decimal(p.sellPrice),
+      quantity: p.quantity,
+      unit: p.unit,
+      branchId: branch.id,
+      isActive: true,
+    };
+    const product = existing
+      ? await prisma.product.update({ where: { id: existing.id }, data })
+      : await prisma.product.create({ data: { sku: p.sku, ...data } });
     productRecords.push({ id: product.id, sku: p.sku, sellPrice: p.sellPrice, name: p.name });
   }
 

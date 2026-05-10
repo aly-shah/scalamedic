@@ -10,7 +10,8 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
-import { formatDate, formatCurrency } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
+import { useFormatCurrency } from "@/hooks/use-format-currency";
 
 interface PortalData {
   patient: Record<string, unknown>;
@@ -21,6 +22,7 @@ interface PortalData {
 }
 
 export default function PatientPortal() {
+  const formatCurrency = useFormatCurrency();
   const [phone, setPhone] = useState("");
   const [patientCode, setPatientCode] = useState("");
   const [loading, setLoading] = useState(false);

@@ -27,7 +27,8 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { invoiceStatusColors } from "@/lib/constants";
 import { useInvoices } from "@/hooks/use-queries";
 import { LoadingSpinner } from "@/components/ui/loading";
-import { formatCurrency, formatDate, getClinicToday, toClinicDay } from "@/lib/utils";
+import { formatDate, getClinicToday, toClinicDay } from "@/lib/utils";
+import { useFormatCurrency } from "@/hooks/use-format-currency";
 import { downloadCSV } from "@/lib/export";
 import { api } from "@/lib/api";
 import { CreateInvoiceModal } from "@/components/billing/create-invoice-modal";
@@ -63,6 +64,7 @@ const statusBadgeVariant = (status: string) =>
     | "default";
 
 export default function BillingPage() {
+  const formatCurrency = useFormatCurrency();
   const router = useRouter();
   const access = useModuleAccess("MOD-BILLING");
   const [search, setSearch] = useState("");

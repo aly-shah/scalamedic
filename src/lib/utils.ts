@@ -50,12 +50,36 @@ export function shiftDay(dateStr: string, deltaDays: number): string {
   return base.toLocaleDateString("en-CA", { timeZone: CLINIC_TZ });
 }
 
-export function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat("en-PK", {
+// Default tenant locale + currency. Backwards-compatible — pre-v61
+// tenants and any caller that hasn't migrated to useFormatCurrency()
+// still render PKR amounts the way they always did.
+//
+// Decimal precision is currency-specific:
+//   PKR — no fractional rupees in this market; round to whole.
+//   USD — cents always shown.
+// More currencies can be added here without touching call sites.
+const CURRENCY_FRACTION_DIGITS: Record<string, number> = {
+  PKR: 0,
+  USD: 2,
+};
+
+/**
+ * Format an amount in the tenant's currency. Server-side callers pass
+ * `currency` and `locale` explicitly (resolve via getCurrentTenant()).
+ * Client-side React components should use the useFormatCurrency() hook
+ * instead — it pulls the values from auth-context and curries them in.
+ */
+export function formatCurrency(
+  amount: number,
+  currency: string = "PKR",
+  locale: string = "en-PK",
+): string {
+  const fractionDigits = CURRENCY_FRACTION_DIGITS[currency] ?? 2;
+  return new Intl.NumberFormat(locale, {
     style: "currency",
-    currency: "PKR",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
+    currency,
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
   }).format(amount);
 }
 

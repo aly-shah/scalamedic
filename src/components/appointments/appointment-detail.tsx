@@ -16,7 +16,7 @@ import { useModuleEmit } from "@/modules/core/hooks";
 import { SystemEvents } from "@/modules/core/events";
 import { AppointmentStatus, WorkflowStage } from "@/types";
 import { appointmentStatusColors, appointmentTypeLabels } from "@/lib/constants";
-import { formatCurrency, CLINIC_TZ } from "@/lib/utils";
+import { CLINIC_TZ } from "@/lib/utils";
 import type { Appointment } from "@/types";
 import { CancelAppointmentDialog } from "@/components/appointments/cancel-appointment-dialog";
 import { CheckoutDialog } from "@/components/appointments/checkout-dialog";

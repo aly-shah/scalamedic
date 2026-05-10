@@ -16,12 +16,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { Loader2, CheckCircle2, AlertTriangle, Search, Printer } from "lucide-react";
 import { SlidePanel } from "@/components/ui/slide-panel";
+import { useFormatCurrency } from "@/hooks/use-format-currency";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Avatar } from "@/components/ui/avatar";
 import { usePatients } from "@/hooks/use-queries";
-import { formatCurrency } from "@/lib/utils";
+
 
 type Product = {
   id: string;
@@ -59,6 +60,7 @@ function num(v: unknown): number {
 }
 
 export function DispensePanel({ product, onClose, onCompleted }: Props) {
+  const formatCurrency = useFormatCurrency();
   const [patientQuery, setPatientQuery] = useState("");
   const [patientId, setPatientId] = useState<string>("");
   const [quantity, setQuantity] = useState<string>("1");

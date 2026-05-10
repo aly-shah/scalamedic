@@ -9,9 +9,10 @@ import {
   Select,
 } from "@/components/ui";
 import { SlidePanel } from "@/components/ui/slide-panel";
+import { useFormatCurrency } from "@/hooks/use-format-currency";
 import { usePatients, useAppointments, useCreateInvoice, useTreatments } from "@/hooks/use-queries";
 import type { Patient, Appointment, TaxCategory } from "@/types";
-import { formatCurrency } from "@/lib/utils";
+
 import { calcLineTax, calcInclusiveTax, rateForTaxCategory, TAX_CATEGORY_LABELS } from "@/lib/tax-rates";
 import { useModuleEmit } from "@/modules/core/hooks";
 import { SystemEvents } from "@/modules/core/events";
@@ -46,6 +47,7 @@ interface CreateInvoiceModalProps {
 }
 
 export function CreateInvoiceModal({ isOpen, onClose, preselectedPatientId }: CreateInvoiceModalProps) {
+  const formatCurrency = useFormatCurrency();
   const emit = useModuleEmit("MOD-BILLING");
   const { data: patientsResponse } = usePatients();
   const allPatients = (patientsResponse?.data || []) as Patient[];

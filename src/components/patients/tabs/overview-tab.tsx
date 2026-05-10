@@ -33,13 +33,15 @@ import {
   usePatientBilling,
   queryKeys,
 } from "@/hooks/use-queries";
-import { formatDate, formatCurrency } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
+import { useFormatCurrency } from "@/hooks/use-format-currency";
 import { useAuth } from "@/lib/auth-context";
 import type { Patient, Appointment, Prescription, Triage, Invoice } from "@/types";
 
 const fmtDate = (d?: string) => (d ? formatDate(d) : "—");
 
 export function OverviewTab({ patient }: { patient: Patient }) {
+  const formatCurrency = useFormatCurrency();
   const { data: triageRes,    isLoading: tLoad } = usePatientTriage(patient.id);
   const { data: apptRes,      isLoading: aLoad } = usePatientAppointments(patient.id);
   const { data: rxRes,        isLoading: rLoad } = usePatientPrescriptions(patient.id);

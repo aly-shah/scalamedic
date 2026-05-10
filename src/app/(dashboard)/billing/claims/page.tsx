@@ -22,7 +22,8 @@ import { ArrowLeft, FileText, AlertTriangle, ShieldCheck, Clock, RefreshCw } fro
 import { Badge, Button, SearchInput, StatCard } from "@/components/ui";
 import { Modal } from "@/components/ui/modal";
 import { LoadingSpinner } from "@/components/ui/loading";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
+import { useFormatCurrency } from "@/hooks/use-format-currency";
 
 type Status =
   | "DRAFT" | "SUBMITTED" | "IN_REVIEW"
@@ -73,6 +74,7 @@ function num(v: unknown): number {
 }
 
 export default function ClaimsListPage() {
+  const formatCurrency = useFormatCurrency();
   const [claims, setClaims] = useState<ClaimRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");

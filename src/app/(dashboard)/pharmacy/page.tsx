@@ -18,9 +18,10 @@ import { SlidePanel } from "@/components/ui/slide-panel";
 import { LoadingSpinner } from "@/components/ui/loading";
 import { useModuleAccess } from "@/modules/core/hooks";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { formatCurrency } from "@/lib/utils";
+
 import { useAuth } from "@/lib/auth-context";
 import { cn } from "@/lib/utils";
+import { useFormatCurrency } from "@/hooks/use-format-currency";
 
 // ---------- Types ----------
 type Product = {
@@ -98,6 +99,7 @@ function useProducts(params?: Record<string, string>) {
 
 // ---------- Page ----------
 export default function PharmacyPage() {
+  const formatCurrency = useFormatCurrency();
   const access = useModuleAccess("MOD-BILLING");
   const { user } = useAuth();
   const qc = useQueryClient();

@@ -11,7 +11,8 @@ import {
 import { LoadingSpinner } from "@/components/ui/loading";
 import { usePatientBilling } from "@/hooks/use-queries";
 import { PaymentModal } from "@/components/billing/payment-modal";
-import { formatDate, formatCurrency } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
+import { useFormatCurrency } from "@/hooks/use-format-currency";
 import type { Invoice } from "@/types";
 
 const statusVariant: Record<string, "success" | "warning" | "danger" | "info" | "default"> = {
@@ -25,6 +26,7 @@ const statusVariant: Record<string, "success" | "warning" | "danger" | "info" | 
 };
 
 export function BillingTab({ patientId }: { patientId: string }) {
+  const formatCurrency = useFormatCurrency();
   const { data: response, isLoading } = usePatientBilling(patientId);
   const [payInvoice, setPayInvoice] = useState<Invoice | null>(null);
 

@@ -13,7 +13,8 @@ import { ArrowLeft, ShieldCheck, Building2, AlertTriangle, RefreshCw } from "luc
 import { Button, StatCard } from "@/components/ui";
 import { DatePicker } from "@/components/ui/date-picker";
 import { LoadingSpinner } from "@/components/ui/loading";
-import { formatCurrency, getClinicToday, toClinicDay } from "@/lib/utils";
+import { getClinicToday, toClinicDay } from "@/lib/utils";
+import { useFormatCurrency } from "@/hooks/use-format-currency";
 
 interface PayerRow {
   payerId: string | null;
@@ -42,6 +43,7 @@ function ninetyDaysAgo(): string {
 }
 
 export default function PayerReportsPage() {
+  const formatCurrency = useFormatCurrency();
   const [from, setFrom] = useState(ninetyDaysAgo());
   const [to, setTo] = useState(getClinicToday());
   const [data, setData] = useState<ReportData | null>(null);

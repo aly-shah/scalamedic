@@ -442,6 +442,13 @@ model Tenant {
   // its data, and the login page can offer a one-click "Try demo"
   // sign-in. Real tenants must keep this false.
   isDemo          Boolean  @default(false)
+  // v61 — locale / currency / tax-scheme. Together they let a single
+  // platform serve PK and US tenants concurrently. Defaults preserve
+  // pre-v61 behavior. CHECK constraints (in the v61 migration) enforce
+  // ISO 4217, BCP 47 country sub-tag, and two-letter scheme codes.
+  currency        String   @default("PKR") @db.VarChar(3)   // ISO 4217 (PKR, USD, ...)
+  locale          String   @default("en-PK") @db.VarChar(10) // BCP 47 (en-PK, en-US, ...)
+  taxScheme       String   @default("PK") @db.VarChar(2)    // "PK" | "US"
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 

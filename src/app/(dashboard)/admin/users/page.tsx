@@ -70,7 +70,8 @@ import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { UserRole } from "@/types";
 import type { User, Branch } from "@/types";
-import { timeAgo, formatCurrency } from "@/lib/utils";
+import { timeAgo } from "@/lib/utils";
+import { useFormatCurrency } from "@/hooks/use-format-currency";
 import { useModuleAccess } from "@/modules/core/hooks";
 
 // ─── Role metadata ──────────────────────────────────────────────────
@@ -482,6 +483,7 @@ function UserCard({
   onOpen: () => void;
   onEdit: () => void;
 }) {
+  const formatCurrency = useFormatCurrency();
   const lastLogin = user.lastLoginAt || user.lastLogin;
   const fee = feeNumber(user.consultationFee);
   return (
@@ -812,6 +814,7 @@ function DetailsPanel({
   onToggleActive: (u: User) => void;
   toggling: boolean;
 }) {
+  const formatCurrency = useFormatCurrency();
   if (!target) return null;
   const lastLogin = target.lastLoginAt || target.lastLogin;
   const fee = feeNumber(target.consultationFee);

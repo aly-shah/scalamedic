@@ -9,7 +9,8 @@ import { StatCard } from "@/components/ui/stat-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useDashboardStats, useInvoices } from "@/hooks/use-queries";
-import { formatCurrency, CLINIC_TZ } from "@/lib/utils";
+import { CLINIC_TZ } from "@/lib/utils";
+import { useFormatCurrency } from "@/hooks/use-format-currency";
 import { useModuleStore } from "@/modules/core/store";
 import { useAuth } from "@/lib/auth-context";
 
@@ -32,6 +33,7 @@ const paymentMethods = [
 ];
 
 export function BillingDashboard() {
+  const formatCurrency = useFormatCurrency();
   const router = useRouter();
   const { activities } = useModuleStore();
   const { user } = useAuth();

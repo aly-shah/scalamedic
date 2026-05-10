@@ -22,9 +22,10 @@ import {
   X, FileText, Printer, Plus, LogOut, AlertTriangle, Loader2,
 } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
+import { useFormatCurrency } from "@/hooks/use-format-currency";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { formatCurrency } from "@/lib/utils";
+
 
 interface InvoiceLite {
   id: string;
@@ -56,6 +57,7 @@ export function CheckoutDialog({
   isOpen, onClose, onConfirmCheckout, onAddBill,
   appointmentId, patientName, invoices, submitting,
 }: CheckoutDialogProps) {
+  const formatCurrency = useFormatCurrency();
   const [confirmingDue, setConfirmingDue] = useState(false);
 
   const totalBilled = invoices.reduce((s, i) => s + num(i.total), 0);

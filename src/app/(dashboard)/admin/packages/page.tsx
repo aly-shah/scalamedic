@@ -53,9 +53,10 @@ import {
   Textarea,
 } from "@/components/ui";
 import { SlidePanel } from "@/components/ui/slide-panel";
+import { useFormatCurrency } from "@/hooks/use-format-currency";
 import { LoadingSpinner } from "@/components/ui/loading";
 import { useConfirm } from "@/components/ui/confirm-dialog";
-import { formatCurrency } from "@/lib/utils";
+
 import { useModuleAccess } from "@/modules/core/hooks";
 import {
   usePackages,
@@ -89,6 +90,7 @@ function totalSessions(p: Package): number {
 // ═══════════════════════════════════════════════════════════════════════
 
 export default function PackagesPage() {
+  const formatCurrency = useFormatCurrency();
   const access = useModuleAccess("MOD-BILLING");
   const { data: packagesResponse, isLoading } = usePackages();
   const packages = (packagesResponse?.data || []) as Package[];

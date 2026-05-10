@@ -29,6 +29,15 @@ export interface TenantBrand {
   primaryColor: string | null;
   plan: TenantPlan;
   planValidUntil: string | null;
+  // v61: locale / currency / tax scheme. Drives Intl.NumberFormat in
+  // useFormatCurrency() and the tax math in lib/tax-rates.ts.
+  currency: string;
+  locale: string;
+  taxScheme: "PK" | "US";
+  // v52 demo flag — drives the top banner + the "Try the demo" CTA on
+  // the login page. Mirror the server's TenantBrand so the auth-context
+  // doesn't lose the field on hydration.
+  isDemo: boolean;
 }
 
 interface LoginResult {

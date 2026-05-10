@@ -6,7 +6,8 @@ import {
   CheckCircle,
 } from "lucide-react";
 import { Modal, Button, Input, Badge } from "@/components/ui";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
+import { useFormatCurrency } from "@/hooks/use-format-currency";
 import { invoiceStatusColors } from "@/lib/constants";
 import type { Invoice, PaymentMethod } from "@/types";
 import { cn } from "@/lib/utils";
@@ -30,6 +31,7 @@ const paymentMethods: { id: PaymentMethod; label: string; icon: React.ReactNode 
 ];
 
 export function PaymentModal({ isOpen, onClose, invoice }: PaymentModalProps) {
+  const formatCurrency = useFormatCurrency();
   const emit = useModuleEmit("MOD-PAYMENT");
   const { user } = useAuth();
   const recordPayment = useRecordPayment();

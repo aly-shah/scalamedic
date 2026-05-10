@@ -43,6 +43,17 @@ export interface TenantBrand {
   /** Demo workspace flag — drives the top-banner warning + the
    *  login page's "Try the demo" CTA. */
   isDemo: boolean;
+  /** ISO 4217 currency code (e.g. "PKR", "USD"). Drives the currency
+   *  symbol + amount formatting in lib/utils.ts:formatCurrency(). */
+  currency: string;
+  /** BCP 47 locale tag (e.g. "en-PK", "en-US"). Drives grouping +
+   *  decimal rules in Intl.NumberFormat. Kept separate from currency
+   *  because the two can validly cross (en-US tenant invoicing PKR). */
+  locale: string;
+  /** Tax scheme key ("PK" | "US"). lib/tax-rates.ts looks rates up by
+   *  this; future regions get added there alongside this field's
+   *  CHECK constraint in the v61 migration. */
+  taxScheme: "PK" | "US";
 }
 
 const PLATFORM_DEFAULTS: Omit<TenantBrand, "id" | "slug"> = {
@@ -57,6 +68,9 @@ const PLATFORM_DEFAULTS: Omit<TenantBrand, "id" | "slug"> = {
   plan: "ENTERPRISE",
   planValidUntil: null,
   isDemo: false,
+  currency: "PKR",
+  locale: "en-PK",
+  taxScheme: "PK",
 };
 
 function publicView(t: {
@@ -73,11 +87,18 @@ function publicView(t: {
   plan?: "FREE" | "PRO" | "ENTERPRISE";
   planValidUntil?: Date | null;
   isDemo?: boolean;
+  currency?: string;
+  locale?: string;
+  taxScheme?: string;
 }): TenantBrand {
   // Apply the same expiry-degrade logic feature-gate.ts uses, so
   // the client and server agree on what plan is "live".
   let plan: "FREE" | "PRO" | "ENTERPRISE" = t.plan ?? "ENTERPRISE";
   if (t.planValidUntil && t.planValidUntil.getTime() < Date.now()) plan = "FREE";
+  // taxScheme widening: the column type is VARCHAR(2) with a CHECK
+  // CHECK ("taxScheme" IN ('PK','US')), so by construction the value
+  // is one of those two — but TS sees it as `string`. Narrow here.
+  const taxScheme: "PK" | "US" = t.taxScheme === "US" ? "US" : "PK";
   return {
     id: t.id,
     slug: t.slug,
@@ -92,6 +113,9 @@ function publicView(t: {
     plan,
     planValidUntil: t.planValidUntil ? t.planValidUntil.toISOString() : null,
     isDemo: t.isDemo ?? false,
+    currency: t.currency ?? PLATFORM_DEFAULTS.currency,
+    locale: t.locale ?? PLATFORM_DEFAULTS.locale,
+    taxScheme,
   };
 }
 
@@ -109,6 +133,9 @@ const TENANT_SELECT = {
   plan: true,
   planValidUntil: true,
   isDemo: true,
+  currency: true,
+  locale: true,
+  taxScheme: true,
 } as const;
 
 /**

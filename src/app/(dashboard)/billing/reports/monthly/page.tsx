@@ -19,7 +19,8 @@ import { Button, Card, StatCard, Select } from "@/components/ui";
 import { LoadingSpinner } from "@/components/ui/loading";
 import { useBranches } from "@/hooks/use-queries";
 import { useModuleAccess } from "@/modules/core/hooks";
-import { formatCurrency, getClinicToday, CLINIC_TZ } from "@/lib/utils";
+import { getClinicToday, CLINIC_TZ } from "@/lib/utils";
+import { useFormatCurrency } from "@/hooks/use-format-currency";
 import { downloadCSV } from "@/lib/export";
 import { api } from "@/lib/api";
 
@@ -82,6 +83,7 @@ function fmtDay(d: string): string {
 }
 
 export default function MonthlyReportPage() {
+  const formatCurrency = useFormatCurrency();
   const access = useModuleAccess("MOD-BILLING");
 
   const [month, setMonth] = useState(getClinicToday().slice(0, 7));

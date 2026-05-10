@@ -13,7 +13,8 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { SearchInput } from "@/components/ui/search-input";
 import { StatCard } from "@/components/ui/stat-card";
-import { formatDate, formatCurrency, computeAge, patientAllergyLabels } from "@/lib/utils";
+import { formatDate, computeAge, patientAllergyLabels } from "@/lib/utils";
+import { useFormatCurrency } from "@/hooks/use-format-currency";
 import { AddPatientModal } from "@/components/patients/add-patient-modal";
 import { CreateAppointmentModal } from "@/components/appointments/create-appointment-modal";
 import { useModuleAccess } from "@/modules/core/hooks";
@@ -37,6 +38,7 @@ const ITEMS_PER_PAGE = 15;
 type QuickFilter = "all" | "today" | "new" | "followup" | "active" | "inactive";
 
 export default function PatientsPage() {
+  const formatCurrency = useFormatCurrency();
   const router = useRouter();
   const access = useModuleAccess("MOD-PATIENT");
   const [search, setSearch] = useState("");

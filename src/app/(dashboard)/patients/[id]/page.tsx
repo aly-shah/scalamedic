@@ -18,7 +18,8 @@ import { usePatient, usePatientTags, usePatientBilling, useAddPatientTag, useRem
 import { DropdownMenu } from "@/components/ui/dropdown";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { useAuth } from "@/lib/auth-context";
-import { formatDate, formatCurrency, calculateAge, patientAllergyLabels } from "@/lib/utils";
+import { formatDate, calculateAge, patientAllergyLabels } from "@/lib/utils";
+import { useFormatCurrency } from "@/hooks/use-format-currency";
 import { useModuleAccess } from "@/modules/core/hooks";
 import { ModuleActionGate } from "@/modules/core/components";
 import { cn } from "@/lib/utils";
@@ -130,6 +131,7 @@ const TAB_COMPONENTS: Record<string, React.FC<{ patientId: string; patient?: Pat
 };
 
 export default function PatientProfilePage({ params }: { params: Promise<{ id: string }> }) {
+  const formatCurrency = useFormatCurrency();
   const { id } = use(params);
   const router = useRouter();
   const { data: response, isLoading } = usePatient(id);

@@ -12,7 +12,8 @@ import { Select } from "@/components/ui/select";
 import { LoadingSpinner } from "@/components/ui/loading";
 import { useModuleAccess } from "@/modules/core/hooks";
 import { useQuery } from "@tanstack/react-query";
-import { formatCurrency, CLINIC_TZ } from "@/lib/utils";
+import { CLINIC_TZ } from "@/lib/utils";
+import { useFormatCurrency } from "@/hooks/use-format-currency";
 import { downloadCSV } from "@/lib/export";
 import { Button } from "@/components/ui/button";
 
@@ -24,6 +25,7 @@ function useReport(type: string, days: number) {
 }
 
 export default function ReportsPage() {
+  const formatCurrency = useFormatCurrency();
   const access = useModuleAccess("MOD-ADMIN");
   const [period, setPeriod] = useState("30");
   const days = parseInt(period);

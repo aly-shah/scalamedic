@@ -13,7 +13,8 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, BarChart3, Loader2, AlertCircle } from "lucide-react";
 import { Card } from "@/components/ui";
-import { formatCurrency } from "@/lib/utils";
+import { useFormatCurrency } from "@/hooks/use-format-currency";
+
 
 interface DoctorRow {
   doctorId: string;
@@ -48,6 +49,7 @@ const monthStart = (() => {
 })();
 
 export default function DoctorRevenuePage() {
+  const formatCurrency = useFormatCurrency();
   const [from, setFrom] = useState(monthStart);
   const [to, setTo] = useState(today);
   const [data, setData] = useState<ReportPayload | null>(null);

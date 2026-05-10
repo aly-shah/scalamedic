@@ -33,9 +33,10 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { LoadingSpinner } from "@/components/ui/loading";
 import { useBranches } from "@/hooks/use-queries";
 import { useAuth } from "@/lib/auth-context";
+import { useFormatCurrency } from "@/hooks/use-format-currency";
 import { useModuleAccess } from "@/modules/core/hooks";
 import {
-  formatCurrency, getClinicToday, toClinicDay, CLINIC_TZ,
+  getClinicToday, toClinicDay, CLINIC_TZ, 
 } from "@/lib/utils";
 import { downloadCSV } from "@/lib/export";
 import { api } from "@/lib/api";
@@ -129,6 +130,7 @@ const navigateDate = (date: string, delta: number): string => {
 };
 
 export default function BillingReportsPage() {
+  const formatCurrency = useFormatCurrency();
   const access = useModuleAccess("MOD-BILLING");
   const { user } = useAuth();
   const isAdminOrBilling = !!user && ["SUPER_ADMIN", "ADMIN", "BILLING"].includes(user.role);

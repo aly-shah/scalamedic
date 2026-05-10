@@ -48,11 +48,12 @@ import {
   StatCard,
 } from "@/components/ui";
 import { SlidePanel } from "@/components/ui/slide-panel";
+import { useFormatCurrency } from "@/hooks/use-format-currency";
 import { LoadingSpinner } from "@/components/ui/loading";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { TreatmentCategory, TaxCategory, type Treatment } from "@/types";
 import { TAX_CATEGORY_LABELS } from "@/lib/tax-rates";
-import { formatCurrency } from "@/lib/utils";
+
 import { useModuleAccess } from "@/modules/core/hooks";
 import {
   useTreatments,
@@ -109,6 +110,7 @@ function fmtDuration(mins: number) {
 // ═══════════════════════════════════════════════════════════════════════
 
 export default function TreatmentsPage() {
+  const formatCurrency = useFormatCurrency();
   const access = useModuleAccess("MOD-PROCEDURE");
   const { data: response, isLoading } = useTreatments();
   const treatments = (response?.data || []) as Treatment[];

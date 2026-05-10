@@ -14,7 +14,8 @@
  */
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { CLINIC_TZ, formatCurrency, getClinicToday } from "@/lib/utils";
+import { CLINIC_TZ, getClinicToday } from "@/lib/utils";
+import { useFormatCurrency } from "@/hooks/use-format-currency";
 import { api } from "@/lib/api";
 
 const PAYMENT_LABELS: Record<string, string> = {
@@ -60,6 +61,7 @@ export default function PrintReportPage() {
 }
 
 function PrintReportInner() {
+  const formatCurrency = useFormatCurrency();
   const params = useSearchParams();
   const date = params.get("date") || getClinicToday();
   const branchId = params.get("branchId") || "";
@@ -355,6 +357,7 @@ function PrintReportInner() {
 }
 
 function TotalBox({ label, value, bold }: { label: string; value: number; bold?: boolean }) {
+  const formatCurrency = useFormatCurrency();
   return (
     <div className={`border ${bold ? "border-stone-900 bg-stone-50" : "border-stone-300"} rounded p-2`}>
       <p className="text-[9px] uppercase font-medium text-stone-500 tracking-wider">{label}</p>
@@ -375,6 +378,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 function ReconLine({
   label, value, positive, negative, bold,
 }: { label: string; value: number; positive?: boolean; negative?: boolean; bold?: boolean }) {
+  const formatCurrency = useFormatCurrency();
   const tone = positive ? "text-emerald-700" : negative ? "text-red-700" : "text-stone-900";
   return (
     <div className="flex justify-between items-baseline">

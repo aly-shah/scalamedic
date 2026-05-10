@@ -47,6 +47,10 @@ export type DemoSeedSummary = {
   claims: Record<"DRAFT" | "SUBMITTED" | "IN_REVIEW" | "APPROVED" | "PARTIAL" | "DENIED" | "PAID" | "APPEALED", number>;
 };
 
+// ─────────────────────────────────────────────────────────────────
+// PK profile (the original demo)
+// ─────────────────────────────────────────────────────────────────
+
 const DEMO_DOCTORS = [
   { name: "Dr. Aisha Khan",       email: "aisha@demo.scalamedic.com",   speciality: "Dermatology",   licenseNumber: "PMC-DEMO-101", consultationFee: 3500 },
   { name: "Dr. Imran Siddiqui",   email: "imran@demo.scalamedic.com",   speciality: "Cosmetology",   licenseNumber: "PMC-DEMO-102", consultationFee: 4500 },
@@ -59,6 +63,36 @@ const DEMO_RECEPTIONISTS = [
 ];
 
 const DEMO_ADMIN = { name: "Demo Admin", email: "admin@demo.scalamedic.com" };
+
+// ─────────────────────────────────────────────────────────────────
+// US profile (added 2026-05-10 for the demo-us tenant)
+//
+// Same shape as the PK constants — a US-flavor demo seed gets:
+//   - American names (Smith, Garcia, Chen, Rodriguez, Johnson, …)
+//   - "@demo-us.scalamedic.com" emails
+//   - State medical-board license numbers (CA-MD-…) instead of PMC
+//   - USD consultation fees in the $150-300 range
+//   - US insurer panel (Aetna, BCBS, UnitedHealthcare, Cigna, …)
+//   - USD-priced treatments / pharmacy retail / packages
+//   - 0% medical / 8% cosmetic tax (US scheme; see lib/tax-rates.ts)
+//   - +1 ###-###-#### phone format
+//
+// Clinical content (SKIN_PRESENTATIONS, ICD codes, drug regimens) is
+// universal — those don't change by region.
+// ─────────────────────────────────────────────────────────────────
+
+const US_DEMO_DOCTORS = [
+  { name: "Dr. Sarah Chen",       email: "sarah@demo-us.scalamedic.com",   speciality: "Dermatology",   licenseNumber: "CA-MD-58291",  consultationFee: 250 },
+  { name: "Dr. Marcus Johnson",   email: "marcus@demo-us.scalamedic.com",  speciality: "Cosmetology",   licenseNumber: "CA-MD-58517",  consultationFee: 300 },
+  { name: "Dr. Priya Patel",      email: "priya@demo-us.scalamedic.com",   speciality: "Trichology",    licenseNumber: "CA-MD-58642",  consultationFee: 275 },
+];
+
+const US_DEMO_RECEPTIONISTS = [
+  { name: "Emily Rodriguez", email: "emily@demo-us.scalamedic.com" },
+  { name: "David Kim",       email: "david@demo-us.scalamedic.com" },
+];
+
+const US_DEMO_ADMIN = { name: "Demo Admin", email: "admin@demo-us.scalamedic.com" };
 
 // Pakistani-region first/last name pool — feels appropriate for the clinic.
 // Pairs first name + likely gender; last names chosen separately.
@@ -77,6 +111,28 @@ const FIRST_NAMES: Array<[string, "MALE" | "FEMALE"]> = [
 const LAST_NAMES = [
   "Khan", "Ahmed", "Ali", "Malik", "Siddiqui", "Hussain", "Raza", "Rahman",
   "Iqbal", "Sheikh", "Qureshi", "Hashmi", "Awan", "Butt", "Shah", "Rizvi",
+];
+
+// US first/last name pool — broad American mix so the demo doesn't
+// look like one ethnic enclave. Pairs first-name+gender, last names
+// chosen separately.
+const US_FIRST_NAMES: Array<[string, "MALE" | "FEMALE"]> = [
+  ["Emma", "FEMALE"],     ["Liam", "MALE"],     ["Olivia", "FEMALE"],   ["Noah", "MALE"],
+  ["Ava", "FEMALE"],       ["Ethan", "MALE"],    ["Sophia", "FEMALE"],   ["Mason", "MALE"],
+  ["Isabella", "FEMALE"],  ["Lucas", "MALE"],    ["Mia", "FEMALE"],      ["Logan", "MALE"],
+  ["Charlotte", "FEMALE"], ["Jackson", "MALE"],  ["Amelia", "FEMALE"],   ["Aiden", "MALE"],
+  ["Harper", "FEMALE"],    ["Caleb", "MALE"],    ["Evelyn", "FEMALE"],   ["Owen", "MALE"],
+  ["Abigail", "FEMALE"],   ["Daniel", "MALE"],   ["Emily", "FEMALE"],    ["Henry", "MALE"],
+  ["Ella", "FEMALE"],      ["Sebastian", "MALE"],["Madison", "FEMALE"],  ["Carter", "MALE"],
+  ["Avery", "FEMALE"],     ["Jayden", "MALE"],   ["Sofia", "FEMALE"],    ["Wyatt", "MALE"],
+  ["Camila", "FEMALE"],    ["John", "MALE"],     ["Aria", "FEMALE"],     ["Luke", "MALE"],
+  ["Scarlett", "FEMALE"],  ["Gabriel", "MALE"],  ["Victoria", "FEMALE"], ["Anthony", "MALE"],
+];
+const US_LAST_NAMES = [
+  "Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis",
+  "Rodriguez", "Martinez", "Hernandez", "Lopez", "Gonzalez", "Wilson", "Anderson",
+  "Thomas", "Taylor", "Moore", "Jackson", "Martin", "Lee", "Perez", "Thompson",
+  "White", "Harris", "Sanchez", "Clark", "Ramirez", "Lewis", "Robinson",
 ];
 
 const SKIN_PRESENTATIONS = [
@@ -204,6 +260,22 @@ const TREATMENT_LINES = [
   { description: "Routine skin biopsy + histopathology", unit: 7500, taxRate: 0.03 },
 ];
 
+// US treatment menu — USD prices. Tax rates follow the US scheme:
+// medical-coded lines (consult, biopsy) are tax-exempt in most states,
+// cosmetic lines carry an 8% sales-tax-style line tax.
+const US_TREATMENT_LINES = [
+  { description: "Consultation - Dermatology", unit: 250, taxRate: 0.00 },
+  { description: "Chemical Peel - Glycolic 30%", unit: 200, taxRate: 0.08 },
+  { description: "Laser Hair Reduction - Upper Lip (1 session)", unit: 120, taxRate: 0.08 },
+  { description: "Laser Hair Reduction - Full Face (1 session)", unit: 350, taxRate: 0.08 },
+  { description: "HydraFacial - Signature", unit: 275, taxRate: 0.08 },
+  { description: "Microneedling with PRP", unit: 600, taxRate: 0.08 },
+  { description: "Botox - Glabella (per session)", unit: 450, taxRate: 0.08 },
+  { description: "Skin tag removal (electrocautery, up to 5)", unit: 175, taxRate: 0.00 },
+  { description: "Acne extraction facial", unit: 150, taxRate: 0.00 },
+  { description: "Routine skin biopsy + histopathology", unit: 325, taxRate: 0.00 },
+];
+
 // Pharmacy retail catalog the demo branch dispenses. Tax 0.08 (cosmetic
 // rate from lib/tax-rates.ts) since most clinic OTC retail sits in the
 // cosmetic bucket — admin can reclassify per-product later. SKU prefix
@@ -222,6 +294,24 @@ const DEMO_PRODUCTS = [
   { sku: "DEMO-SUP-02",  name: "Zinc Picolinate (60 caps)",     category: "SUPPLEMENT" as const, brand: "VitaCo",     costPrice: 900,  sellPrice: 1800, unit: "bottle", quantity: 25 },
   { sku: "DEMO-HAIR-01", name: "Minoxidil 5% Solution",         category: "HAIR"       as const, brand: "RegrowRx",   costPrice: 1700, sellPrice: 3400, unit: "bottle", quantity: 20 },
   { sku: "DEMO-TOOL-01", name: "Soft-bristle facial brush",     category: "TOOL"       as const, brand: "Generic",    costPrice: 250,  sellPrice: 600,  unit: "piece",  quantity: 60 },
+];
+
+// US pharmacy retail — USD prices. SKU prefix DEMO-US-* so the two
+// catalogs coexist on the same Postgres without colliding on the
+// products.sku partial-unique index.
+const US_DEMO_PRODUCTS = [
+  { sku: "DEMO-US-CL-01",   name: "Gentle Foaming Cleanser",      category: "CLEANSER"   as const, brand: "DermaPro",   costPrice: 8,  sellPrice: 18, unit: "tube",   quantity: 40 },
+  { sku: "DEMO-US-MOIST-01",name: "Hydra Daily Moisturizer",      category: "MOISTURIZER" as const, brand: "DermaPro",   costPrice: 12, sellPrice: 28, unit: "bottle", quantity: 28 },
+  { sku: "DEMO-US-SPF-01",  name: "Tinted SPF 50+",                category: "SUNSCREEN"  as const, brand: "SkinShield", costPrice: 14, sellPrice: 32, unit: "tube",   quantity: 35 },
+  { sku: "DEMO-US-SER-01",  name: "Vitamin C 15% Serum",           category: "SERUM"      as const, brand: "DermaPro",   costPrice: 22, sellPrice: 48, unit: "bottle", quantity: 22 },
+  { sku: "DEMO-US-SER-02",  name: "Niacinamide 10% Serum",         category: "SERUM"      as const, brand: "DermaPro",   costPrice: 18, sellPrice: 38, unit: "bottle", quantity: 18 },
+  { sku: "DEMO-US-SER-03",  name: "Retinol 0.5% Serum",            category: "SERUM"      as const, brand: "SkinShield", costPrice: 28, sellPrice: 65, unit: "bottle", quantity: 14 },
+  { sku: "DEMO-US-TRT-01",  name: "Adapalene 0.1% Gel",            category: "TREATMENT"  as const, brand: "Generic",    costPrice: 6,  sellPrice: 14, unit: "tube",   quantity: 50 },
+  { sku: "DEMO-US-TRT-02",  name: "Benzoyl Peroxide 2.5% Gel",     category: "TREATMENT"  as const, brand: "Generic",    costPrice: 5,  sellPrice: 12, unit: "tube",   quantity: 45 },
+  { sku: "DEMO-US-SUP-01",  name: "Biotin 5000mcg (60 caps)",      category: "SUPPLEMENT" as const, brand: "VitaCo",     costPrice: 14, sellPrice: 30, unit: "bottle", quantity: 30 },
+  { sku: "DEMO-US-SUP-02",  name: "Zinc Picolinate (60 caps)",     category: "SUPPLEMENT" as const, brand: "VitaCo",     costPrice: 11, sellPrice: 24, unit: "bottle", quantity: 25 },
+  { sku: "DEMO-US-HAIR-01", name: "Minoxidil 5% Solution",         category: "HAIR"       as const, brand: "RegrowRx",   costPrice: 18, sellPrice: 42, unit: "bottle", quantity: 20 },
+  { sku: "DEMO-US-TOOL-01", name: "Soft-bristle facial brush",     category: "TOOL"       as const, brand: "Generic",    costPrice: 4,  sellPrice: 10, unit: "piece",  quantity: 60 },
 ];
 
 // Multi-session bundles. Names prefixed "[Demo]" so they're identifiable
@@ -260,6 +350,45 @@ const DEMO_PACKAGES = [
     name: "[Demo] Anti-Ageing Bundle — 3 sessions",
     description: "Three sessions of microneedling with PRP plus a Botox top-up.",
     price: 70000, validityDays: 240, maxRedemptions: 3,
+    treatments: [
+      { name: "Microneedling with PRP",         sessions: 3 },
+      { name: "Botox - Glabella (per session)", sessions: 1 },
+    ],
+  },
+];
+
+// US package catalog — USD prices, "[Demo US]" prefix so the two
+// catalogs are unambiguous when searching the global packages table.
+const US_DEMO_PACKAGES = [
+  {
+    name: "[Demo US] Acne Clearance — 6 sessions",
+    description: "Six fortnightly sessions: chemical peel + extraction + photofacial.",
+    price: 1200, validityDays: 180, maxRedemptions: 6,
+    treatments: [
+      { name: "Chemical Peel - Glycolic 30%", sessions: 3 },
+      { name: "Acne extraction facial",       sessions: 3 },
+    ],
+  },
+  {
+    name: "[Demo US] Laser Hair Reduction — Full Face × 6",
+    description: "Six sessions of full-face LHR, spaced 4-6 weeks apart.",
+    price: 1800, validityDays: 360, maxRedemptions: 6,
+    treatments: [
+      { name: "Laser Hair Reduction - Full Face (1 session)", sessions: 6 },
+    ],
+  },
+  {
+    name: "[Demo US] HydraFacial Glow — 4 sessions",
+    description: "Four monthly HydraFacials for sustained radiance.",
+    price: 950, validityDays: 150, maxRedemptions: 4,
+    treatments: [
+      { name: "HydraFacial - Signature", sessions: 4 },
+    ],
+  },
+  {
+    name: "[Demo US] Anti-Ageing Bundle — 3 sessions",
+    description: "Three sessions of microneedling with PRP plus a Botox top-up.",
+    price: 2200, validityDays: 240, maxRedemptions: 3,
     treatments: [
       { name: "Microneedling with PRP",         sessions: 3 },
       { name: "Botox - Glabella (per session)", sessions: 1 },
@@ -430,6 +559,113 @@ const SEED_PAYERS: Array<{ name: string; code: string; email: string | null; pho
   { name: "Self-pay (no insurer)",   code: "SELFPAY",      email: null,                     phone: null },
 ];
 
+// US payer master — the household-name commercial carriers a US clinic
+// would recognize on a demo, plus Medicare / Medicaid for public
+// coverage and self-pay. Codes are short identifiers, not the real
+// payer IDs each carrier publishes (those vary by clearinghouse /
+// state and aren't load-bearing for a UI demo).
+const US_SEED_PAYERS: Array<{ name: string; code: string; email: string | null; phone: string | null }> = [
+  { name: "Aetna",                    code: "AETNA",       email: "providers@aetna.com",     phone: "+1-800-872-3862" },
+  { name: "Blue Cross Blue Shield",   code: "BCBS",        email: "providers@bcbs.com",      phone: "+1-888-630-2583" },
+  { name: "UnitedHealthcare",         code: "UHC",         email: "providers@uhc.com",       phone: "+1-877-842-3210" },
+  { name: "Cigna",                    code: "CIGNA",       email: "providers@cigna.com",     phone: "+1-800-882-4462" },
+  { name: "Humana",                   code: "HUMANA",      email: "providers@humana.com",    phone: "+1-800-457-4708" },
+  { name: "Kaiser Permanente",        code: "KAISER",      email: null,                      phone: "+1-800-464-4000" },
+  { name: "Anthem",                   code: "ANTHEM",      email: "providers@anthem.com",    phone: "+1-833-414-4302" },
+  { name: "Medicare",                 code: "MEDICARE",    email: null,                      phone: "+1-800-633-4227" },
+  { name: "Medicaid",                 code: "MEDICAID",    email: null,                      phone: "+1-877-267-2323" },
+  { name: "Self-pay (no insurer)",    code: "SELFPAY",     email: null,                      phone: null },
+];
+
+// ─────────────────────────────────────────────────────────────────
+// Region profile — bundles every region-specific bit of demo data
+// so seedDemoTenant() can pick "PK" or "US" with one parameter.
+// Adding a third region (UAE, UK, …) means writing one more profile;
+// the seeder body doesn't change.
+// ─────────────────────────────────────────────────────────────────
+
+export type DemoRegion = "PK" | "US";
+
+interface RegionProfile {
+  region: DemoRegion;
+  currency: string;
+  locale: string;
+  taxScheme: "PK" | "US";
+  doctors: typeof DEMO_DOCTORS;
+  receptionists: typeof DEMO_RECEPTIONISTS;
+  admin: typeof DEMO_ADMIN;
+  firstNames: typeof FIRST_NAMES;
+  lastNames: typeof LAST_NAMES;
+  treatmentLines: typeof TREATMENT_LINES;
+  demoProducts: typeof DEMO_PRODUCTS;
+  demoPackages: typeof DEMO_PACKAGES;
+  seedPayers: typeof SEED_PAYERS;
+  branchAddress: string;
+  branchPhone: string;
+  branchTimezone: string;
+  branchEmailDomain: string; // for the "clinic+CODE@..." auto-generated branch contact
+  nationality: string;
+  cities: string[];
+  // Phone-suffix formatter — given an index, returns a full phone
+  // number in the region's format. Length matches schema's varchar(32).
+  phoneFor: (i: number) => string;
+}
+
+const PK_PROFILE: RegionProfile = {
+  region: "PK",
+  currency: "PKR",
+  locale: "en-PK",
+  taxScheme: "PK",
+  doctors: DEMO_DOCTORS,
+  receptionists: DEMO_RECEPTIONISTS,
+  admin: DEMO_ADMIN,
+  firstNames: FIRST_NAMES,
+  lastNames: LAST_NAMES,
+  treatmentLines: TREATMENT_LINES,
+  demoProducts: DEMO_PRODUCTS,
+  demoPackages: DEMO_PACKAGES,
+  seedPayers: SEED_PAYERS,
+  branchAddress: "Plot 12, Demo Street, Karachi",
+  branchPhone: "+92-300-0000000",
+  branchTimezone: "Asia/Karachi",
+  branchEmailDomain: "demo.scalamedic.com",
+  nationality: "Pakistani",
+  cities: ["Karachi", "Lahore", "Islamabad", "Hyderabad"],
+  phoneFor: (i: number) => `+923${pad(rand(i + 500, 90) + 10, 2)}${pad(1000 + i * 7, 7)}`,
+};
+
+const US_PROFILE: RegionProfile = {
+  region: "US",
+  currency: "USD",
+  locale: "en-US",
+  taxScheme: "US",
+  doctors: US_DEMO_DOCTORS,
+  receptionists: US_DEMO_RECEPTIONISTS,
+  admin: US_DEMO_ADMIN,
+  firstNames: US_FIRST_NAMES,
+  lastNames: US_LAST_NAMES,
+  treatmentLines: US_TREATMENT_LINES,
+  demoProducts: US_DEMO_PRODUCTS,
+  demoPackages: US_DEMO_PACKAGES,
+  seedPayers: US_SEED_PAYERS,
+  branchAddress: "1234 Wilshire Blvd, Los Angeles, CA 90017",
+  branchPhone: "+1-310-555-0100",
+  branchTimezone: "America/Los_Angeles",
+  branchEmailDomain: "demo-us.scalamedic.com",
+  nationality: "American",
+  cities: ["Los Angeles", "New York", "Chicago", "Houston", "Phoenix", "Miami"],
+  phoneFor: (i: number) => `+1-${pad(200 + (i * 17) % 700, 3)}-${pad(100 + (i * 37) % 900, 3)}-${pad(1000 + i * 7, 4)}`,
+};
+
+const REGION_PROFILES: Record<DemoRegion, RegionProfile> = {
+  PK: PK_PROFILE,
+  US: US_PROFILE,
+};
+
+export function profileFor(region: DemoRegion | undefined): RegionProfile {
+  return REGION_PROFILES[region ?? "PK"];
+}
+
 const SEED_DENIAL_REASONS: Array<{ code: string; description: string; isCommon: boolean }> = [
   { code: "AUTH-MISSING",  description: "Pre-authorization not obtained",                       isCommon: true  },
   { code: "AUTH-EXPIRED",  description: "Pre-authorization expired before service date",        isCommon: false },
@@ -448,9 +684,12 @@ const SEED_DENIAL_REASONS: Array<{ code: string; description: string; isCommon: 
   { code: "OTHER",         description: "Other reason — see free-text notes",                   isCommon: true  },
 ];
 
-async function ensureTenantMasterData(tenantId: string): Promise<void> {
-  // Payers
-  for (const p of SEED_PAYERS) {
+async function ensureTenantMasterData(tenantId: string, profile: RegionProfile = PK_PROFILE): Promise<void> {
+  // Payers — picks PK or US panel based on the seeded tenant's region.
+  // Idempotent by (tenantId, code) so re-seeds skip already-present rows;
+  // PK and US panels share only the SELFPAY code, which is fine because
+  // a single tenant is single-region (the PROFILE is fixed per call).
+  for (const p of profile.seedPayers) {
     const existing = await prisma.payer.findUnique({
       where: { tenantId_code: { tenantId, code: p.code } },
     });
@@ -489,16 +728,23 @@ async function ensureTenantMasterData(tenantId: string): Promise<void> {
 export async function seedDemoTenant(opts: {
   tenantId: string;
   password: string;
+  /** Region profile to seed under. Defaults to "PK" so the existing
+   *  PKR demo tenant keeps regenerating its old shape on reset. Pass
+   *  "US" for the demo-us tenant — see profileFor() above. */
+  region?: DemoRegion;
 }): Promise<DemoSeedSummary> {
   const tenant = await prisma.tenant.findUnique({ where: { id: opts.tenantId } });
   if (!tenant) throw new Error(`Tenant ${opts.tenantId} not found`);
   if (!tenant.isDemo) throw new Error("Refusing to seed: tenant.isDemo is false");
 
+  const profile = profileFor(opts.region);
+
   // v59 / v60 master data is seeded by the migrations at apply time,
   // but only for tenants that existed then. New tenants (created via
   // /api/tenant/onboard or this demo bootstrap) miss the seed — so we
-  // backfill here before relying on the data downstream.
-  await ensureTenantMasterData(opts.tenantId);
+  // backfill here before relying on the data downstream. Profile-aware
+  // so US tenants get the US payer panel.
+  await ensureTenantMasterData(opts.tenantId, profile);
 
   await wipeDemoTenantData(opts.tenantId);
 
@@ -512,10 +758,10 @@ export async function seedDemoTenant(opts: {
       data: {
         name: "Demo Skin Clinic",
         code,
-        address: "Plot 12, Demo Street, Karachi",
-        phone: "+92-300-0000000",
-        email: `clinic+${code.toLowerCase()}@demo.scalamedic.com`,
-        timezone: "Asia/Karachi",
+        address: profile.branchAddress,
+        phone: profile.branchPhone,
+        email: `clinic+${code.toLowerCase()}@${profile.branchEmailDomain}`,
+        timezone: profile.branchTimezone,
         tenantId: opts.tenantId,
         isActive: true,
       },
@@ -529,7 +775,7 @@ export async function seedDemoTenant(opts: {
   // upsert would 42P10. Reuses the same product id across re-runs so
   // historic invoice-item references survive.
   const productRecords: Array<{ id: string; sku: string; sellPrice: number; name: string }> = [];
-  for (const p of DEMO_PRODUCTS) {
+  for (const p of profile.demoProducts) {
     const existing = await prisma.product.findFirst({ where: { sku: p.sku } });
     const data = {
       name: p.name,
@@ -555,7 +801,7 @@ export async function seedDemoTenant(opts: {
   // PackageTreatment children are wipe-and-recreate so name/sessions
   // updates from the constants land on next seed.
   const packageRecords: Array<{ id: string; name: string; price: number; treatments: Array<{ name: string; sessions: number }> }> = [];
-  for (const pkg of DEMO_PACKAGES) {
+  for (const pkg of profile.demoPackages) {
     let p = await prisma.package.findFirst({ where: { name: pkg.name } });
     if (!p) {
       p = await prisma.package.create({
@@ -602,9 +848,9 @@ export async function seedDemoTenant(opts: {
   // ---- Users ----
   const adminUser = await prisma.user.create({
     data: {
-      email: DEMO_ADMIN.email,
+      email: profile.admin.email,
       passwordHash,
-      name: DEMO_ADMIN.name,
+      name: profile.admin.name,
       role: "ADMIN",
       branchId: branch.id,
       tenantId: opts.tenantId,
@@ -613,7 +859,7 @@ export async function seedDemoTenant(opts: {
   });
 
   const doctors: Array<{ id: string; name: string; consultationFee: number }> = [];
-  for (const d of DEMO_DOCTORS) {
+  for (const d of profile.doctors) {
     const u = await prisma.user.create({
       data: {
         email: d.email,
@@ -632,7 +878,7 @@ export async function seedDemoTenant(opts: {
   }
 
   const receptionists: Array<{ id: string; name: string }> = [];
-  for (const r of DEMO_RECEPTIONISTS) {
+  for (const r of profile.receptionists) {
     const u = await prisma.user.create({
       data: {
         email: r.email,
@@ -651,8 +897,8 @@ export async function seedDemoTenant(opts: {
   const patients: Array<{ id: string; gender: "MALE" | "FEMALE"; doctorId: string; presentation: typeof SKIN_PRESENTATIONS[number] }> = [];
   const PATIENT_COUNT = 40;
   for (let i = 0; i < PATIENT_COUNT; i++) {
-    const [first, gender] = pick(FIRST_NAMES, i);
-    const last = pick(LAST_NAMES, i + 7);
+    const [first, gender] = pick(profile.firstNames, i);
+    const last = pick(profile.lastNames, i + 7);
     const ageYears = 18 + rand(i + 100, 50); // 18-68
     const dob = new Date();
     dob.setFullYear(dob.getFullYear() - ageYears);
@@ -660,7 +906,6 @@ export async function seedDemoTenant(opts: {
     dob.setDate(1 + rand(i + 300, 27));
     const skinTypeIdx = rand(i + 400, 6);
     const skinType = (["TYPE_I", "TYPE_II", "TYPE_III", "TYPE_IV", "TYPE_V", "TYPE_VI"] as const)[skinTypeIdx];
-    const phoneSuffix = pad(1000 + i * 7, 7);
     const presentation = pick(SKIN_PRESENTATIONS, i);
     const doctor = pick(doctors, i);
 
@@ -669,13 +914,13 @@ export async function seedDemoTenant(opts: {
         patientCode: `PT-${pad(i + 1, 4)}`,
         firstName: first,
         lastName: last,
-        email: `${first.toLowerCase()}.${last.toLowerCase()}+${i + 1}@demo.scalamedic.com`,
-        phone: `+923${pad(rand(i + 500, 90) + 10, 2)}${phoneSuffix}`,
+        email: `${first.toLowerCase()}.${last.toLowerCase()}+${i + 1}@${profile.branchEmailDomain}`,
+        phone: profile.phoneFor(i),
         dateOfBirth: dob,
         gender,
-        nationality: "Pakistani",
+        nationality: profile.nationality,
         tenantId: opts.tenantId,
-        city: pick(["Karachi", "Lahore", "Islamabad", "Hyderabad"], i),
+        city: pick(profile.cities, i),
         skinType,
         branchId: branch.id,
         assignedDoctorId: doctor.id,
@@ -951,8 +1196,8 @@ export async function seedDemoTenant(opts: {
 
   for (let i = 0; i < completedApts.length; i++) {
     const apt = completedApts[i];
-    const treatment = pick(TREATMENT_LINES, i + 1); // skip "Consultation" sometimes via offset
-    const consultLine = TREATMENT_LINES[0];
+    const treatment = pick(profile.treatmentLines, i + 1); // skip "Consultation" sometimes via offset
+    const consultLine = profile.treatmentLines[0];
     const doctor = doctors.find((d) => d.id === apt.doctorId)!;
 
     // Consultation + treatment, plus an optional pharmacy line on

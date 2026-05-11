@@ -99,8 +99,12 @@ function LoginPageInner() {
         <div className="relative z-10 flex flex-col justify-between p-12 text-white w-full">
           <div className="flex items-center gap-3">
             {brandLogo ? (
+              // No background tile / padding — tenant logos already
+              // carry their own shape and corner radius; an extra
+              // white plate behind a transparent-PNG logo just shows
+              // through the artwork's negative space.
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={brandLogo} alt={brandName} className="h-10 w-auto bg-white/95 rounded-xl p-1.5 object-contain" />
+              <img src={brandLogo} alt={brandName} className="h-10 w-auto object-contain" />
             ) : (
               <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
                 <span className="text-lg font-bold">{brandShort.charAt(0).toUpperCase()}</span>

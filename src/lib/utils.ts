@@ -63,6 +63,34 @@ const CURRENCY_FRACTION_DIGITS: Record<string, number> = {
   USD: 2,
 };
 
+// Fixed PKR↔USD rate for dual-currency display on receipts. This is
+// deliberately not a real FX feed — accounting still happens entirely
+// in the tenant's primary currency. The dual display is a UX nicety
+// so a foreign patient (or a prospect reviewing the demo) sees an
+// at-a-glance equivalent in a currency they recognise.
+//
+// Bump this constant when the rate drifts materially. ~280 PKR per
+// USD is the May-2026 ballpark.
+export const PKR_PER_USD = 280;
+
+/** Convert between PKR and USD using the fixed receipt rate. Returns
+ *  null for unsupported currency pairs — caller can choose to omit
+ *  the alt-currency line entirely in that case. */
+export function convertCurrency(amount: number, from: string, to: string): number | null {
+  if (from === to) return amount;
+  if (from === "PKR" && to === "USD") return amount / PKR_PER_USD;
+  if (from === "USD" && to === "PKR") return amount * PKR_PER_USD;
+  return null;
+}
+
+/** Pick a sensible alternate currency for dual-currency receipt
+ *  display. PKR ↔ USD; anything else returns null. */
+export function alternateCurrency(primary: string): string | null {
+  if (primary === "PKR") return "USD";
+  if (primary === "USD") return "PKR";
+  return null;
+}
+
 /**
  * Format an amount in the tenant's currency. Server-side callers pass
  * `currency` and `locale` explicitly (resolve via getCurrentTenant()).

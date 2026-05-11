@@ -28,6 +28,7 @@ import { Modal } from "@/components/ui/modal";
 import { useAuth } from "@/lib/auth-context";
 import { LoadingSpinner } from "@/components/ui/loading";
 import { ReceiptQR, useVisitQrUrl } from "@/components/billing/receipt-bits";
+import { alternateCurrency, convertCurrency, formatCurrency } from "@/lib/utils";
 
 type Money = number | string | null | undefined;
 function asNum(v: Money): number {
@@ -160,6 +161,23 @@ function InvoicePageInner() {
   const receiptLogo = tenant?.wordmarkUrl || tenant?.logoUrl || null;
   const receiptPoweredBy = tenant?.poweredByLine || "Powered by ScalaMedic";
   const receiptClinicName = tenant?.name || "ScalaMedic";
+  // Dual-currency display: primary is whatever the tenant is invoicing
+  // in; the alternate is the other of {PKR, USD} so a foreign patient
+  // can read the total at a glance. Conversion uses a fixed rate in
+  // lib/utils.ts — accounting still happens entirely in the primary.
+  // Returns null on either side if the currency pair isn't supported,
+  // in which case we silently skip the alt-line.
+  const primaryCurrency = tenant?.currency ?? "PKR";
+  const primaryLocale = tenant?.locale ?? "en-PK";
+  const altCurrency = alternateCurrency(primaryCurrency);
+  const altLocale = altCurrency === "USD" ? "en-US" : altCurrency === "PKR" ? "en-PK" : null;
+  const fmtPrimary = (n: number) => formatCurrency(n, primaryCurrency, primaryLocale);
+  const fmtAlt = (n: number): string | null => {
+    if (!altCurrency || !altLocale) return null;
+    const converted = convertCurrency(n, primaryCurrency, altCurrency);
+    if (converted == null) return null;
+    return formatCurrency(converted, altCurrency, altLocale);
+  };
   // Auto-print mode: callers (dashboard "print" buttons) link with
   // ?print=1 so the receipt page opens, prints itself once data is
   // ready, and the user is back on the dashboard immediately.
@@ -333,8 +351,18 @@ function InvoicePageInner() {
         <div className="border-t-2 border-black mt-2" />
         <div className="flex items-baseline justify-between py-1.5">
           <span className="font-bold text-[15px] tracking-wider">TOTAL</span>
-          <span className="font-mono font-bold text-[18px]">{fmt(total)}</span>
+          <span className="font-mono font-bold text-[18px]">{fmtPrimary(total)}</span>
         </div>
+        {/* Alt-currency line under TOTAL. Smaller, italicised, prefixed
+            with "≈" so a glance can't mistake it for the authoritative
+            amount that was actually charged. Hidden when no conversion
+            is available (currency outside the PKR/USD pair). */}
+        {fmtAlt(total) && (
+          <div className="flex items-baseline justify-between -mt-1 pb-1.5 text-[11px] text-stone-500">
+            <span className="italic">≈ equivalent</span>
+            <span className="font-mono">{fmtAlt(total)}</span>
+          </div>
+        )}
         <div className="border-t-2 border-black" />
 
         {/* ── Payment line(s). Single payment → "Paid: X (Method)".
@@ -362,7 +390,10 @@ function InvoicePageInner() {
           {due > 0 && (
             <p>
               <span className="font-bold">Balance:</span>{" "}
-              <span className="font-mono">{fmt(due)}</span>
+              <span className="font-mono">{fmtPrimary(due)}</span>
+              {fmtAlt(due) && (
+                <span className="text-stone-500 italic"> · ≈ {fmtAlt(due)}</span>
+              )}
             </p>
           )}
           {due < 0 && (

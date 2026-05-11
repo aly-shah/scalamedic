@@ -152,11 +152,12 @@ function InvoicePageInner() {
   const id = params?.id as string;
   // Tenant brand drives the receipt logo + footer credit. Comes from
   // the auth context (already hydrated when the user reaches this
-  // page from the dashboard). Tenants without their own logoUrl
-  // render no logo block at all — better than showing another
-  // tenant's mark by accident.
+  // page from the dashboard). Receipt fallback chain: wordmark
+  // (preferred — designed for wide surfaces) → square logo → text
+  // masthead. Tenants without either render a clean text-only
+  // header rather than a stale mark from another tenant.
   const { tenant } = useAuth();
-  const receiptLogo = tenant?.logoUrl || null;
+  const receiptLogo = tenant?.wordmarkUrl || tenant?.logoUrl || null;
   const receiptPoweredBy = tenant?.poweredByLine || "Powered by ScalaMedic";
   const receiptClinicName = tenant?.name || "ScalaMedic";
   // Auto-print mode: callers (dashboard "print" buttons) link with

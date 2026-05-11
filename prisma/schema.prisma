@@ -425,6 +425,11 @@ model Tenant {
   // wordmark used across surfaces, faviconUrl is the browser-tab
   // icon. Null means "use the platform default".
   logoUrl         String?  @db.Text
+  // v62 — horizontal wordmark for wide surfaces (printed receipt).
+  // The receipt prefers this when set; falls back to logoUrl and
+  // then to a text masthead. Nullable so existing tenants keep
+  // their current behavior.
+  wordmarkUrl     String?  @db.Text
   faviconUrl      String?  @db.Text
   // OTPAuth issuer name shown in authenticator apps. Defaults to
   // the platform name when null.

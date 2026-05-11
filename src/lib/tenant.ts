@@ -28,6 +28,11 @@ export interface TenantBrand {
   legalName: string | null;
   shortName: string | null;
   logoUrl: string | null;
+  /** v62: horizontal wordmark for wide surfaces (printed receipt).
+   *  When null the receipt falls back to logoUrl, then to a text
+   *  masthead. logoUrl stays the canonical square-ish brand mark
+   *  used by favicon / topbar / login hero. */
+  wordmarkUrl: string | null;
   faviconUrl: string | null;
   mfaIssuer: string | null;
   poweredByLine: string | null;
@@ -61,6 +66,7 @@ const PLATFORM_DEFAULTS: Omit<TenantBrand, "id" | "slug"> = {
   legalName: null,
   shortName: "ScalaMedic",
   logoUrl: null,
+  wordmarkUrl: null,
   faviconUrl: null,
   mfaIssuer: "ScalaMedic",
   poweredByLine: "Powered by ScalaMedic",
@@ -80,6 +86,7 @@ function publicView(t: {
   legalName: string | null;
   shortName: string | null;
   logoUrl: string | null;
+  wordmarkUrl?: string | null;
   faviconUrl: string | null;
   mfaIssuer: string | null;
   poweredByLine: string | null;
@@ -106,6 +113,7 @@ function publicView(t: {
     legalName: t.legalName,
     shortName: t.shortName ?? t.name,
     logoUrl: t.logoUrl,
+    wordmarkUrl: t.wordmarkUrl ?? null,
     faviconUrl: t.faviconUrl,
     mfaIssuer: t.mfaIssuer ?? PLATFORM_DEFAULTS.mfaIssuer,
     poweredByLine: t.poweredByLine ?? PLATFORM_DEFAULTS.poweredByLine,
@@ -126,6 +134,7 @@ const TENANT_SELECT = {
   legalName: true,
   shortName: true,
   logoUrl: true,
+  wordmarkUrl: true,
   faviconUrl: true,
   mfaIssuer: true,
   poweredByLine: true,

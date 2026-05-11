@@ -23,6 +23,10 @@ export interface TenantBrand {
   legalName: string | null;
   shortName: string | null;
   logoUrl: string | null;
+  /** v62: horizontal wordmark for the printed receipt (and any other
+   *  wide surface that wants more than a square mark). Falls back
+   *  through logoUrl → text masthead when null. */
+  wordmarkUrl: string | null;
   faviconUrl: string | null;
   mfaIssuer: string | null;
   poweredByLine: string | null;

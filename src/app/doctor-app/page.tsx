@@ -399,9 +399,12 @@ export default function DoctorApp() {
     logoUrl: string | null;
   }
   const [tenant, setTenant] = useState<TenantView | null>(null);
-  const tenantLogo = tenant?.logoUrl || "/drnakhoda-logo.png";
-  const tenantName = tenant?.name || "Dr. Nakhoda's Skin Institute";
-  const tenantShort = tenant?.shortName || "Nakhoda Skin";
+  // No fallback logo — better to render no mark than a stale Nakhoda
+  // PNG on a tenant that doesn't own it. Consumers check tenantLogo
+  // for null and render a text-only header.
+  const tenantLogo = tenant?.logoUrl || null;
+  const tenantName = tenant?.name || "ScalaMedic";
+  const tenantShort = tenant?.shortName || "ScalaMedic";
 
   // Auth state
   const [loggedIn, setLoggedIn] = useState(false);
@@ -1613,16 +1616,19 @@ export default function DoctorApp() {
         <ToastStack toasts={toasts} />
         <div className="relative w-full max-w-sm">
           <div className="text-center mb-8">
-            {/* Logo on transparent background — sits directly on the
-                gradient. Wider container since the logo is a wordmark
-                (1448x556) not a square mark. drop-shadow keeps it
-                legible on lighter regions of the gradient. */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={tenantLogo}
-              alt={tenantName}
-              className="mx-auto mb-3 h-20 w-auto drop-shadow-lg"
-            />
+            {/* Logo on transparent background when the tenant has one;
+                otherwise fall back to a text wordmark so we never ship
+                another tenant's PNG. */}
+            {tenantLogo ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={tenantLogo}
+                alt={tenantName}
+                className="mx-auto mb-3 h-20 w-auto drop-shadow-lg"
+              />
+            ) : (
+              <h2 className="text-2xl font-bold text-white tracking-tight drop-shadow-lg">{tenantName}</h2>
+            )}
             <h1 className="text-2xl font-bold text-white mt-1">Doctor Portal</h1>
             <p className="text-cyan-100 text-sm mt-2">Sign in to view today&apos;s schedule</p>
           </div>
@@ -3457,12 +3463,16 @@ export default function DoctorApp() {
             {/* Wordmark sits directly on the gradient — no white
                 tile. Drop-shadow keeps it readable. */}
             <div className="flex items-center gap-3 min-w-0">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={tenantLogo}
-                alt={tenantName}
-                className="h-9 w-auto shrink-0 drop-shadow"
-              />
+              {tenantLogo ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img
+                  src={tenantLogo}
+                  alt={tenantName}
+                  className="h-9 w-auto shrink-0 drop-shadow"
+                />
+              ) : (
+                <span className="text-white font-bold text-base shrink-0 drop-shadow">{tenantShort}</span>
+              )}
               <div className="min-w-0">
                 <p className="text-cyan-100 text-[10px] uppercase tracking-wider font-semibold truncate">{todayLabel}</p>
                 <h1 className="text-lg sm:text-xl font-bold text-white mt-0.5 truncate">

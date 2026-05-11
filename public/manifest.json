@@ -1,7 +1,7 @@
 {
-  "name": "Nakhoda Skin Institute",
-  "short_name": "Nakhoda Skin",
-  "description": "Dr. Nakhoda's Skin Institute — Clinic Management",
+  "name": "ScalaMedic",
+  "short_name": "ScalaMedic",
+  "description": "ScalaMedic — Clinic Management",
   "start_url": "/dashboard",
   "display": "standalone",
   "background_color": "#FAFAF9",

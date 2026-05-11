@@ -16,17 +16,15 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import Link from "next/link";
 
 type State = "LOADING" | "ELIGIBLE" | "ALREADY_SUBMITTED" | "OUTSIDE_WINDOW" | "ERROR";
-
-const INSTAGRAM = "https://www.instagram.com/drnakhodaskininstitute/";
-const FACEBOOK  = "https://www.facebook.com/DrNakhoda/";
 
 export default function ReviewPage() {
   const { token } = useParams<{ token: string }>();
   const [state, setState] = useState<State>("LOADING");
-  const [clinicName, setClinicName] = useState("Dr. Nakhoda's Skin Institute");
+  // Default is the platform name; replaced with the real tenant.name
+  // by the by-token loader as soon as the page mounts.
+  const [clinicName, setClinicName] = useState("ScalaMedic");
 
   // Form state
   const [rating, setRating] = useState<number>(0);
@@ -240,27 +238,6 @@ function ThankYouBlock({ title, body }: { title: string; body: string }) {
     <>
       <h1 className="mt-4 text-xl sm:text-2xl font-bold text-stone-900 text-center">{title}</h1>
       <p className="mt-2 text-sm sm:text-base text-stone-500 text-center leading-relaxed">{body}</p>
-      <div className="mt-6 pt-5 border-t border-stone-100 text-center">
-        <p className="text-xs uppercase tracking-wider text-stone-400 font-semibold">Follow us</p>
-        <div className="mt-3 flex flex-col sm:flex-row sm:justify-center items-stretch sm:items-center gap-2.5">
-          <Link
-            href={INSTAGRAM}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 sm:py-2 rounded-xl bg-gradient-to-r from-fuchsia-500 via-pink-500 to-orange-400 text-white text-sm font-semibold shadow hover:shadow-md transition-shadow active:scale-[0.99]"
-          >
-            <InstagramGlyph /> Instagram
-          </Link>
-          <Link
-            href={FACEBOOK}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 sm:py-2 rounded-xl bg-[#1877F2] text-white text-sm font-semibold shadow hover:shadow-md transition-shadow active:scale-[0.99]"
-          >
-            <FacebookGlyph /> Facebook
-          </Link>
-        </div>
-      </div>
     </>
   );
 }
@@ -291,18 +268,3 @@ function Spinner() {
   );
 }
 
-function InstagramGlyph() {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
-      <path d="M12 2.16c3.2 0 3.58.01 4.85.07 1.17.05 1.8.25 2.23.41.56.22.96.48 1.38.9.42.42.68.82.9 1.38.16.43.36 1.06.41 2.23.06 1.27.07 1.65.07 4.85s-.01 3.58-.07 4.85c-.05 1.17-.25 1.8-.41 2.23a3.71 3.71 0 0 1-.9 1.38 3.71 3.71 0 0 1-1.38.9c-.43.16-1.06.36-2.23.41-1.27.06-1.65.07-4.85.07s-3.58-.01-4.85-.07c-1.17-.05-1.8-.25-2.23-.41a3.71 3.71 0 0 1-1.38-.9 3.71 3.71 0 0 1-.9-1.38c-.16-.43-.36-1.06-.41-2.23C2.17 15.58 2.16 15.2 2.16 12s.01-3.58.07-4.85c.05-1.17.25-1.8.41-2.23.22-.56.48-.96.9-1.38.42-.42.82-.68 1.38-.9.43-.16 1.06-.36 2.23-.41C8.42 2.17 8.8 2.16 12 2.16Zm0 1.94c-3.14 0-3.51.01-4.75.07-1 .04-1.55.21-1.91.35-.48.19-.83.42-1.19.78-.36.36-.59.71-.78 1.19-.14.36-.31.91-.35 1.91-.06 1.24-.07 1.61-.07 4.75s.01 3.51.07 4.75c.04 1 .21 1.55.35 1.91.19.48.42.83.78 1.19.36.36.71.59 1.19.78.36.14.91.31 1.91.35 1.24.06 1.61.07 4.75.07s3.51-.01 4.75-.07c1-.04 1.55-.21 1.91-.35.48-.19.83-.42 1.19-.78.36-.36.59-.71.78-1.19.14-.36.31-.91.35-1.91.06-1.24.07-1.61.07-4.75s-.01-3.51-.07-4.75c-.04-1-.21-1.55-.35-1.91a3.21 3.21 0 0 0-.78-1.19 3.21 3.21 0 0 0-1.19-.78c-.36-.14-.91-.31-1.91-.35-1.24-.06-1.61-.07-4.75-.07Zm0 3.3a4.6 4.6 0 1 1 0 9.2 4.6 4.6 0 0 1 0-9.2Zm0 1.94a2.66 2.66 0 1 0 0 5.32 2.66 2.66 0 0 0 0-5.32Zm5.85-2.25a1.08 1.08 0 1 1-2.16 0 1.08 1.08 0 0 1 2.16 0Z" />
-    </svg>
-  );
-}
-
-function FacebookGlyph() {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
-      <path d="M22 12c0-5.52-4.48-10-10-10S2 6.48 2 12c0 4.99 3.66 9.13 8.44 9.88v-6.99H7.9V12h2.54V9.8c0-2.5 1.49-3.89 3.77-3.89 1.09 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.77-1.63 1.56V12h2.78l-.44 2.89h-2.34v6.99C18.34 21.13 22 16.99 22 12Z" />
-    </svg>
-  );
-}

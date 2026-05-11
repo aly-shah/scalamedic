@@ -33,7 +33,7 @@ const FIELD_GUIDE: Record<Field, string> = {
     "Field type: pharmacy product notes — short usage / dosing / storage / warning hints for the dispensing receptionist. 1-3 sentences or 2-4 short bulleted lines. Plain language. Don't invent dosages or new indications; only tidy what's already there.",
 };
 
-const SYSTEM_PROMPT = `You are a copy editor for a dermatology/aesthetic clinic in Pakistan (Dr. Nakhoda's Skin Institute). The admin has written some copy and wants you to polish it. Rules:
+const SYSTEM_PROMPT = `You are a copy editor for a dermatology / aesthetic clinic. The admin has written some copy and wants you to polish it. Rules:
 
 1. Fix grammar, spelling, punctuation, capitalization.
 2. Tighten clarity. Remove filler. Keep the meaning.

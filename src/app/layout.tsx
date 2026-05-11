@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import { AuthProvider } from "@/lib/auth-context";
 import { QueryProvider } from "@/lib/query-provider";
 import { FeedbackProvider } from "@/lib/feedback-provider";
+import { getCurrentTenant } from "@/lib/tenant";
 import "./globals.css";
 
 const inter = Inter({
@@ -11,13 +12,23 @@ const inter = Inter({
   display: "swap",
 });
 
-export const metadata: Metadata = {
-  title: "Nakhoda Skin Institute",
-  description: "Dr. Nakhoda's Skin Institute — Clinic Management System",
-  manifest: "/manifest.json",
-  themeColor: "#0D9488",
-  appleWebApp: { capable: true, statusBarStyle: "default", title: "Nakhoda Skin" },
-};
+// Metadata is tenant-aware so each deployment (or per-host tenant on a
+// multi-tenant box) sees its own name in the browser tab, the Open
+// Graph card, and the iOS home-screen launcher. Resolution order
+// inside getCurrentTenant(): session.user.tenant → Host header →
+// single-tenant fallback → platform default ("ScalaMedic").
+export async function generateMetadata(): Promise<Metadata> {
+  const tenant = await getCurrentTenant();
+  const name = tenant.name ?? "ScalaMedic";
+  const shortName = tenant.shortName ?? name;
+  return {
+    title: name,
+    description: `${name} — Clinic Management System`,
+    manifest: "/manifest.json",
+    themeColor: "#0D9488",
+    appleWebApp: { capable: true, statusBarStyle: "default", title: shortName },
+  };
+}
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (

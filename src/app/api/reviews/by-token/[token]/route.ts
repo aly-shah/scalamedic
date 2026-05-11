@@ -15,6 +15,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { logger } from "@/lib/logger";
+import { getCurrentTenant } from "@/lib/tenant";
 
 const REVIEW_WINDOW_MS = 48 * 60 * 60 * 1000; // 2 days
 
@@ -32,7 +33,15 @@ interface ReviewResp {
   clinicName: string;
 }
 
-const CLINIC_NAME = "Dr. Nakhoda's Skin Institute";
+// Resolve the clinic name via the inbound Host header (per-host tenant
+// lookup in getCurrentTenant) so each deployment / per-host tenant on
+// a multi-tenant box gets its own name on the review page. The token
+// itself ties to a specific tenant via patient → branch → tenant, but
+// the Host-based resolver is sufficient and avoids an extra query.
+async function clinicName(): Promise<string> {
+  const tenant = await getCurrentTenant();
+  return tenant.name ?? "ScalaMedic";
+}
 
 async function loadTokenContext(rawToken: string) {
   return prisma.qrToken.findUnique({
@@ -66,14 +75,14 @@ export async function GET(
     const { token } = await params;
     const ctx = await loadTokenContext(token);
     const state: ReviewState = ctx ? currentState(ctx) : "NOT_FOUND";
-    const body: ReviewResp = { success: true, state, clinicName: CLINIC_NAME };
+    const body: ReviewResp = { success: true, state, clinicName: await clinicName() };
     return NextResponse.json(body);
   } catch (error) {
     logger.api("GET", "/api/reviews/by-token/[token]", error);
     // On error, default to OUTSIDE_WINDOW so the patient sees the
     // generic thank-you instead of an error screen.
     return NextResponse.json(
-      { success: true, state: "OUTSIDE_WINDOW", clinicName: CLINIC_NAME },
+      { success: true, state: "OUTSIDE_WINDOW", clinicName: await clinicName() },
       { status: 200 },
     );
   }

@@ -18,7 +18,7 @@ import { logger } from "@/lib/logger";
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
-const SYSTEM_PROMPT = `You are a copywriter for a dermatology/aesthetic clinic in Pakistan (Dr. Nakhoda's Skin Institute). Given a treatment's name and clinical category, draft four short fields the receptionist will show to patients:
+const SYSTEM_PROMPT = `You are a copywriter for a dermatology / aesthetic clinic. Given a treatment's name and clinical category, draft four short fields the receptionist will show to patients:
 
 - description: 1-2 sentences, plain language, what the treatment does and what it targets. No marketing fluff. No medical claims about cure.
 - preInstructions: bullet-style pre-treatment instructions (one per line, no bullet markers) typical for that treatment. e.g. avoid retinoids 5 days prior, no waxing 24h before, etc. Keep to 3-5 lines max.

@@ -152,11 +152,13 @@ function InvoicePageInner() {
   const id = params?.id as string;
   // Tenant brand drives the receipt logo + footer credit. Comes from
   // the auth context (already hydrated when the user reaches this
-  // page from the dashboard). Falls back to the previous hardcoded
-  // values if tenant resolution failed.
+  // page from the dashboard). Tenants without their own logoUrl
+  // render no logo block at all — better than showing another
+  // tenant's mark by accident.
   const { tenant } = useAuth();
-  const receiptLogo = tenant?.logoUrl || "/drnakhoda-logo.png";
-  const receiptPoweredBy = tenant?.poweredByLine || "Powered by Scalamatic";
+  const receiptLogo = tenant?.logoUrl || null;
+  const receiptPoweredBy = tenant?.poweredByLine || "Powered by ScalaMedic";
+  const receiptClinicName = tenant?.name || "ScalaMedic";
   // Auto-print mode: callers (dashboard "print" buttons) link with
   // ?print=1 so the receipt page opens, prints itself once data is
   // ready, and the user is back on the dashboard immediately.
@@ -249,19 +251,25 @@ function InvoicePageInner() {
 
         {/* ── Header — full clinic lockup (monogram + wordmark) + contact ── */}
         <div className="text-center">
-          {/* The lockup PNG already carries the clinic name, so the
-              separate <h1> is gone. Plain <img> (not next/image)
-              so the browser print pipeline hands the thermal driver
-              a single rasterised PNG at native dpi. */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={receiptLogo}
-            alt={invoice.branch.name}
-            width={240}
-            height={160}
-            className="mx-auto block"
-            style={{ width: 240, height: "auto" }}
-          />
+          {/* If the tenant has its own logo, print that as a single
+              rasterised PNG at native dpi (plain <img>, not next/image,
+              so the browser print pipeline hands the thermal driver a
+              clean asset). Otherwise fall back to the tenant name as
+              the masthead — no logo at all is better than showing
+              another tenant's mark. */}
+          {receiptLogo ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              src={receiptLogo}
+              alt={receiptClinicName}
+              width={240}
+              height={160}
+              className="mx-auto block"
+              style={{ width: 240, height: "auto" }}
+            />
+          ) : (
+            <h1 className="text-base font-bold tracking-tight">{receiptClinicName}</h1>
+          )}
           {invoice.branch.address && (
             <p className="text-[10px] mt-2 leading-tight px-2">{invoice.branch.address}</p>
           )}
@@ -380,7 +388,6 @@ function InvoicePageInner() {
           </div>
           <p className="text-[11px] font-bold">Scan to leave a review ★</p>
           <p className="text-[12px] font-semibold pt-1">Thank you for visiting!</p>
-          <p className="text-[11px]">Follow us: <span className="font-bold">@drnakhodas</span></p>
         </div>
         <p className="text-center text-[9px] text-stone-500 mt-3 mb-1">
           {receiptPoweredBy}

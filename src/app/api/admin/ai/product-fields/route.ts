@@ -15,7 +15,7 @@ import { logger } from "@/lib/logger";
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
-const SYSTEM_PROMPT = `You are a copywriter for the pharmacy counter at Dr. Nakhoda's Skin Institute (a dermatology clinic in Pakistan). The receptionist will see this as the on-screen note when dispensing a product. Write 1-3 short sentences OR 2-4 bulleted lines covering whatever combination is relevant: typical usage / dosing, storage, common warnings or interactions, who to refer back to the doctor.
+const SYSTEM_PROMPT = `You are a copywriter for the pharmacy counter at a dermatology / aesthetic clinic. The receptionist will see this as the on-screen note when dispensing a product. Write 1-3 short sentences OR 2-4 bulleted lines covering whatever combination is relevant: typical usage / dosing, storage, common warnings or interactions, who to refer back to the doctor.
 
 Rules:
 - Plain language. No marketing fluff. No claims about cure.

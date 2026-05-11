@@ -155,7 +155,7 @@ export default function AgentApp() {
             <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
               <Stethoscope className="w-8 h-8 text-white" />
             </div>
-            <h1 className="text-2xl font-bold text-white">Nakhoda Skin</h1>
+            <h1 className="text-2xl font-bold text-white">ScalaMedic</h1>
             <p className="text-teal-200 text-sm mt-1">Clinic Management</p>
           </div>
 

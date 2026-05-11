@@ -36,6 +36,8 @@ export type DemoSeedSummary = {
   appointments: { past: number; upcoming: number };
   consultationNotes: number;
   prescriptions: number;
+  transcriptions: number;
+  aiSuggestions: number;
   labTests: number;
   invoices: { paid: number; pendingOrPartial: number };
   pharmacyLines: number;
@@ -1141,6 +1143,172 @@ export async function seedDemoTenant(opts: {
     }
   }
 
+  // ---- Ambient AI transcriptions + suggestions ----
+  // Doctor-app's headline feature is the ambient scribe: it captures
+  // the visit, structures it, and offers tappable Rx / follow-up
+  // suggestions. The demo needs realistic history so a prospect's
+  // first impression isn't an empty "Past transcriptions" panel.
+  //
+  // For ~70% of completed appointments that have a signed note, we
+  // emit:
+  //   - one AITranscription (raw dialogue derived from the patient's
+  //     SKIN_PRESENTATION; structured-note JSON; summary; duration
+  //     3-8 min; status COMPLETED; completedAt = checkout)
+  //   - one AISuggestion per Rx item the presentation carries (kind
+  //     MEDICATION, payload = the medicine details)
+  //   - one FOLLOWUP suggestion (kind FOLLOWUP, days=28)
+  // Suggestion statuses spread 60% ACCEPTED / 25% PENDING / 15%
+  // REJECTED so the suggestions tray shows all three states.
+  //
+  // Constraints respected:
+  //   v15 ai_transcriptions_duration_positive (duration > 0)
+  //   v21 ai_transcriptions_rawTranscript_nonempty / _summary_nonempty
+  //   v34 ai_suggestions_payload_is_object / _modelId_nonempty
+  let transcriptionsCount = 0;
+  let suggestionsCount = 0;
+
+  type PresentationLike = typeof SKIN_PRESENTATIONS[number];
+  const presentationById = new Map<string, PresentationLike>();
+  for (const p of patients) presentationById.set(p.id, p.presentation);
+
+  function buildTranscript(p: PresentationLike): string {
+    return [
+      "[Auto-transcribed by ambient scribe · gpt-4o-mini · ambient-scribe-v1]",
+      "",
+      "Doctor: So tell me what's been going on.",
+      `Patient: ${p.complaint}.`,
+      "Doctor: Okay, let me have a look…",
+      `Doctor: ${p.examination}`,
+      `Doctor: ${p.skinAssessment}`,
+      `Doctor: Right, this looks like ${p.diagnosis}. Severity is ${p.severity.toLowerCase()}.`,
+      `Doctor: The plan I'd suggest — ${p.plan}`,
+      "Patient: Any side effects I should watch for?",
+      `Doctor: ${p.advice}`,
+      "Doctor: Let's review in four weeks.",
+      "Patient: Thank you, doctor.",
+    ].join("\n");
+  }
+
+  const transcriptionApts = await prisma.appointment.findMany({
+    where: { branchId: branch.id, status: "COMPLETED" },
+    select: {
+      id: true,
+      patientId: true,
+      doctorId: true,
+      checkinTime: true,
+      checkoutTime: true,
+      consultationNotes: { select: { id: true }, take: 1 },
+    },
+  });
+
+  for (let i = 0; i < transcriptionApts.length; i++) {
+    const apt = transcriptionApts[i];
+    if (apt.consultationNotes.length === 0) continue;          // no signed note → no transcript
+    if (rand(i + 2500, 100) >= 70) continue;                    // ~70% coverage
+
+    const presentation = presentationById.get(apt.patientId);
+    if (!presentation) continue;
+
+    const durationSec = 180 + rand(i + 2600, 300);              // 180-480 s
+    const completedAt = apt.checkoutTime ?? apt.checkinTime;
+    if (!completedAt) continue;
+
+    const transcript = await prisma.aITranscription.create({
+      data: {
+        appointmentId: apt.id,
+        patientId: apt.patientId,
+        doctorId: apt.doctorId,
+        rawTranscript: buildTranscript(presentation),
+        structuredNote: {
+          chiefComplaint: presentation.complaint,
+          examination: presentation.examination,
+          skinAssessment: presentation.skinAssessment,
+          assessment: presentation.diagnosis,
+          severity: presentation.severity,
+          plan: presentation.plan,
+          advice: presentation.advice,
+          affectedAreas: presentation.affectedAreas,
+        },
+        summary: `${presentation.diagnosis} — ${presentation.plan.slice(0, 80)}${presentation.plan.length > 80 ? "…" : ""}`,
+        status: "COMPLETED",
+        duration: durationSec,
+        language: "en",
+        completedAt,
+        // CHECK constraints expect createdAt/updatedAt to fall around
+        // the visit; pin to checkin so completedAt >= createdAt holds.
+        createdAt: apt.checkinTime ?? completedAt,
+        updatedAt: completedAt,
+      },
+    });
+    transcriptionsCount++;
+
+    // Status spread for suggestions. Stable per-transcription seed so
+    // the same demo seed produces the same suggestion mix.
+    const statusRoll = (k: number) => {
+      const r = rand(i * 7 + k * 3 + 2700, 100);
+      return r < 60 ? "ACCEPTED" : r < 85 ? "PENDING" : "REJECTED";
+    };
+
+    // One MEDICATION suggestion per Rx item the presentation carries.
+    for (let k = 0; k < presentation.rx.length; k++) {
+      const it = presentation.rx[k];
+      const status = statusRoll(k);
+      await prisma.aISuggestion.create({
+        data: {
+          kind: "MEDICATION",
+          patientId: apt.patientId,
+          appointmentId: apt.id,
+          doctorId: apt.doctorId,
+          payload: {
+            medicineName: it.medicineName,
+            dosage: it.dosage,
+            frequency: it.frequency,
+            duration: it.duration,
+            route: it.route,
+            instructions: it.instructions,
+          },
+          modelId: "gpt-4o-mini",
+          promptVersion: "ambient-scribe-v1",
+          transcriptionId: transcript.id,
+          status,
+          decidedAt: status === "PENDING" ? null : new Date(completedAt.getTime() + 60_000),
+          decidedById: status === "PENDING" ? null : apt.doctorId,
+          rejectionReason: status === "REJECTED" ? "Patient already on this regimen — no change" : null,
+          createdAt: completedAt,
+          updatedAt: status === "PENDING" ? completedAt : new Date(completedAt.getTime() + 60_000),
+        },
+      });
+      suggestionsCount++;
+    }
+
+    // One FOLLOWUP suggestion per visit ("Recheck in 4 weeks").
+    {
+      const status = statusRoll(99);
+      await prisma.aISuggestion.create({
+        data: {
+          kind: "FOLLOWUP",
+          patientId: apt.patientId,
+          appointmentId: apt.id,
+          doctorId: apt.doctorId,
+          payload: {
+            reason: `Recheck ${presentation.diagnosis.toLowerCase()}`,
+            days: 28,
+          },
+          modelId: "gpt-4o-mini",
+          promptVersion: "ambient-scribe-v1",
+          transcriptionId: transcript.id,
+          status,
+          decidedAt: status === "PENDING" ? null : new Date(completedAt.getTime() + 60_000),
+          decidedById: status === "PENDING" ? null : apt.doctorId,
+          rejectionReason: status === "REJECTED" ? "Patient prefers to call if needed" : null,
+          createdAt: completedAt,
+          updatedAt: status === "PENDING" ? completedAt : new Date(completedAt.getTime() + 60_000),
+        },
+      });
+      suggestionsCount++;
+    }
+  }
+
   // ---- Lab tests for ~15% of patients ----
   let labTestsCount = 0;
   for (let i = 0; i < patients.length; i++) {
@@ -1584,6 +1752,8 @@ export async function seedDemoTenant(opts: {
     appointments: { past: pastAppointmentsCount, upcoming: upcomingAppointmentsCount },
     consultationNotes: consultationNotesCount,
     prescriptions: prescriptionsCount,
+    transcriptions: transcriptionsCount,
+    aiSuggestions: suggestionsCount,
     labTests: labTestsCount,
     invoices: { paid: paidInvoices, pendingOrPartial: openInvoices },
     pharmacyLines: pharmacyLinesAdded,

@@ -212,6 +212,7 @@ export function CheckoutDialog({
 function Tile({
   label, value, tone, bold,
 }: { label: string; value: number; tone?: "emerald" | "amber" | "stone"; bold?: boolean }) {
+  const formatCurrency = useFormatCurrency();
   const toneClass =
     tone === "emerald" ? "text-emerald-700" :
     tone === "amber" ? "text-amber-700" :

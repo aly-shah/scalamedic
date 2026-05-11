@@ -338,6 +338,7 @@ function BreakdownCard({
   accent: "emerald" | "violet" | "amber";
   empty: string;
 }) {
+  const formatCurrency = useFormatCurrency();
   const sorted = [...entries].sort((a, b) => b[1] - a[1]);
   const accentClass =
     accent === "emerald" ? "bg-emerald-500" :

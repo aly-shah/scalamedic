@@ -742,6 +742,7 @@ export default function BillingReportsPage() {
 function ReconRow({
   label, value, positive, negative, bold,
 }: { label: string; value: number; positive?: boolean; negative?: boolean; bold?: boolean }) {
+  const formatCurrency = useFormatCurrency();
   const tone = positive ? "text-emerald-600" : negative ? "text-red-600" : "text-stone-900";
   return (
     <div className="bg-stone-50/60 rounded-xl p-3 border border-stone-100">
@@ -763,6 +764,7 @@ function BreakdownCard({
   accent: "emerald" | "violet";
   empty: string;
 }) {
+  const formatCurrency = useFormatCurrency();
   const sorted = [...entries].sort((a, b) => b[1] - a[1]);
   const accentClass = accent === "emerald" ? "bg-emerald-500" : "bg-violet-500";
   return (
@@ -797,6 +799,7 @@ function BreakdownCard({
 }
 
 function InvoiceRow({ inv, showBranch }: { inv: DailyReport["invoices"][number]; showBranch?: boolean }) {
+  const formatCurrency = useFormatCurrency();
   const [open, setOpen] = useState(false);
   // Distinct payment methods used on this invoice. An invoice can be
   // settled with a mix (e.g. partial cash + partial card), so we show
@@ -1019,6 +1022,7 @@ function CloseDayModal({
   isOpen: boolean; onClose: () => void; report: DailyReport | null;
   date: string; branchId: string; onClosed: () => void;
 }) {
+  const formatCurrency = useFormatCurrency();
   const [opening, setOpening] = useState("0");
   const [denoms, setDenoms] = useState<Record<number, string>>({});
   const [remarks, setRemarks] = useState("");

@@ -435,6 +435,7 @@ function TreatmentCard({
   onOpen: () => void;
   onEdit: () => void;
 }) {
+  const formatCurrency = useFormatCurrency();
   const meta = CAT_META[treatment.category as Cat];
   const procedures = treatment._count?.procedures ?? 0;
 
@@ -976,6 +977,7 @@ function DetailsPanel({
   toggling: boolean;
   branches: Branch[];
 }) {
+  const formatCurrency = useFormatCurrency();
   if (!target) return null;
   const meta = CAT_META[target.category as Cat];
   const branchById = new Map(branches.map((b) => [b.id, b]));

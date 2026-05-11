@@ -318,6 +318,7 @@ function PackageCard({
   onOpen: () => void;
   onEdit: () => void;
 }) {
+  const formatCurrency = useFormatCurrency();
   const sessions = totalSessions(pkg);
   const subs = subCount(pkg);
 
@@ -775,6 +776,7 @@ function DetailsPanel({
   toggling: boolean;
   branches: Branch[];
 }) {
+  const formatCurrency = useFormatCurrency();
   if (!target) return null;
   const subs = subCount(target);
   const sessions = totalSessions(target);

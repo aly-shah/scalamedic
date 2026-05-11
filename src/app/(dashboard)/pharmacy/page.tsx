@@ -630,6 +630,7 @@ function ProductCard({
   onAdjust: () => void;
   onDispense: () => void;
 }) {
+  const formatCurrency = useFormatCurrency();
   const qty = product.quantity;
   const reorder = product.reorderLevel;
   const stock = stockChip(qty, reorder);
@@ -715,6 +716,7 @@ function ProductRow({
   onAdjust: () => void;
   onDispense: () => void;
 }) {
+  const formatCurrency = useFormatCurrency();
   const qty = product.quantity;
   const reorder = product.reorderLevel;
   const stock = stockChip(qty, reorder);

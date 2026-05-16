@@ -26,6 +26,12 @@ const publicPaths = [
   // /get-started, posts to /api/tenant/onboard, gets a session
   // cookie back and is bounced to /dashboard.
   "/get-started", "/api/tenant/onboard",
+  // Public booking wizard at /book. The page + the three endpoints
+  // under /api/public/booking/* are anonymous (Host-resolved tenant,
+  // IP-rate-limited). A walk-in patient lands here, picks doctor +
+  // slot + leaves their phone, and a real Appointment is created in
+  // the right tenant.
+  "/book", "/api/public/booking",
 ];
 
 export async function middleware(request: NextRequest) {

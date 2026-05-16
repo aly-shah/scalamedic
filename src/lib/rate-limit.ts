@@ -101,4 +101,12 @@ export const RATE_LIMITS = {
   // (TENANT_ONBOARD_TOKEN env adds a hard gate on top for closed
   // deployments).
   TENANT_ONBOARD: { key: "tenant-onboard", max: 5, windowMs: 60 * 60 * 1000 },
+  // Public booking endpoints. Per-IP buckets (no session). Listing
+  // doctors and looking up availability are read-only and idempotent,
+  // so generous (200/hour = a patient browsing 3-4 doctors and 4-5
+  // dates before picking). Booking create is the one we actually
+  // care about: a real patient books once, not every minute — 10/hour
+  // per IP catches scripted abuse while leaving honest users alone.
+  PUBLIC_BOOKING_READ:   { key: "public-booking-read",   max: 200, windowMs: 60 * 60 * 1000 },
+  PUBLIC_BOOKING_CREATE: { key: "public-booking-create", max: 10,  windowMs: 60 * 60 * 1000 },
 } as const;

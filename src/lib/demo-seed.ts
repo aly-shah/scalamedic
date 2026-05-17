@@ -861,6 +861,15 @@ export async function seedDemoTenant(opts: {
   });
 
   const doctors: Array<{ id: string; name: string; consultationFee: number }> = [];
+  // Standard demo schedule: MON-SAT, 09:00-17:00, 13:00-14:00 lunch,
+  // 30-min slots. Realistic for a six-day-week skin clinic and gives
+  // /api/public/booking/availability a proper shape to compute against
+  // (without these rows the availability route falls back to 08-18
+  // and looks too generic). Sunday off; admins can edit per-doctor
+  // hours under /admin/schedules once the demo is live.
+  const SCHEDULE_DAYS = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"] as const;
+  const scheduleEffectiveFrom = new Date("2026-01-01");
+
   for (const d of profile.doctors) {
     const u = await prisma.user.create({
       data: {
@@ -877,6 +886,21 @@ export async function seedDemoTenant(opts: {
       },
     });
     doctors.push({ id: u.id, name: u.name, consultationFee: d.consultationFee });
+
+    // Working hours per doctor — same for all three in the demo.
+    await prisma.doctorSchedule.createMany({
+      data: SCHEDULE_DAYS.map((day) => ({
+        doctorId: u.id,
+        dayOfWeek: day,
+        startTime: "09:00",
+        endTime: "17:00",
+        breakStart: "13:00",
+        breakEnd: "14:00",
+        slotMinutes: 30,
+        isActive: true,
+        effectiveFrom: scheduleEffectiveFrom,
+      })),
+    });
   }
 
   const receptionists: Array<{ id: string; name: string }> = [];

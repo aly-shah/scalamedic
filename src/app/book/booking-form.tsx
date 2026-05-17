@@ -337,6 +337,8 @@ export default function BookingForm({
               <div className="rounded-xl border border-stone-200 bg-white px-4 py-6 text-center text-sm text-stone-500">
                 {slotsReason === "ON_LEAVE"
                   ? "Doctor is on leave that day. Try another date."
+                  : slotsReason === "DAY_OFF"
+                  ? "Doctor doesn't work on that day. Try another date."
                   : slotsReason === "PAST_DATE"
                   ? "Cannot book in the past. Pick a later date."
                   : "No free slots that day — try another date."}

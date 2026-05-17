@@ -105,17 +105,26 @@ export async function GET(request: Request) {
       return NextResponse.json({ success: true, data: { slots: [], reason: "PAST_DATE" } });
     }
 
-    // Doctor schedule for that day of week.
+    // Doctor schedule for that day of week. On the public booking
+    // surface, a missing schedule row means "this doctor isn't
+    // working that day" — return zero slots with a reason so the UI
+    // can prompt "try another date" rather than offering a default
+    // 08-18 window that doesn't reflect actual availability.
     const schedule = await prisma.doctorSchedule.findFirst({
       where: { doctorId, dayOfWeek, isActive: true },
       select: { startTime: true, endTime: true, breakStart: true, breakEnd: true, slotMinutes: true },
     });
-    // Default clinic hours when no schedule row exists (08:00–18:00).
-    const docStart = schedule ? timeToMinutes(schedule.startTime) : 8 * 60;
-    const docEnd   = schedule ? timeToMinutes(schedule.endTime)   : 18 * 60;
-    const slotMins = schedule?.slotMinutes ?? 30;
-    const breakStart = schedule?.breakStart ? timeToMinutes(schedule.breakStart) : null;
-    const breakEnd   = schedule?.breakEnd   ? timeToMinutes(schedule.breakEnd)   : null;
+    if (!schedule) {
+      return NextResponse.json({
+        success: true,
+        data: { doctorId, date: dateStr, durationMinutes: durationMins, slots: [], reason: "DAY_OFF" },
+      });
+    }
+    const docStart = timeToMinutes(schedule.startTime);
+    const docEnd   = timeToMinutes(schedule.endTime);
+    const slotMins = schedule.slotMinutes ?? 30;
+    const breakStart = schedule.breakStart ? timeToMinutes(schedule.breakStart) : null;
+    const breakEnd   = schedule.breakEnd   ? timeToMinutes(schedule.breakEnd)   : null;
 
     // APPROVED leave covering the date → no slots.
     const onLeave = await prisma.doctorLeave.findFirst({

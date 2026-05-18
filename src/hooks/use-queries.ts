@@ -22,7 +22,7 @@ export const queryKeys = {
     billing: (id: string) => ["patients", id, "billing"] as const,
     labTests: (id: string) => ["patients", id, "labTests"] as const,
     followUps: (id: string) => ["patients", id, "followUps"] as const,
-    triage: (id: string) => ["patients", id, "triage"] as const,
+    vitals: (id: string) => ["patients", id, "vitals"] as const,
     tags: (id: string) => ["patients", id, "tags"] as const,
   },
   appointments: {
@@ -150,10 +150,10 @@ export function usePatientFollowUps(id: string) {
   });
 }
 
-export function usePatientTriage(id: string) {
+export function usePatientVitals(id: string) {
   return useQuery({
-    queryKey: queryKeys.patients.triage(id),
-    queryFn: () => api.patients.triage(id),
+    queryKey: queryKeys.patients.vitals(id),
+    queryFn: () => api.patients.vitals(id),
     enabled: !!id,
   });
 }
@@ -906,17 +906,17 @@ export function useCreatePatientFollowUp(patientId: string) {
   });
 }
 
-export function useCreatePatientTriage(patientId: string) {
+export function useCreatePatientVitals(patientId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: Record<string, unknown>) =>
-      fetch(`/api/patients/${patientId}/triage`, {
+      fetch(`/api/patients/${patientId}/vitals`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       }).then((r) => r.json()),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.patients.triage(patientId) });
+      qc.invalidateQueries({ queryKey: queryKeys.patients.vitals(patientId) });
     },
   });
 }

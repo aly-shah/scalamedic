@@ -1,7 +1,7 @@
 /**
- * @system MediCore ERP - Patient Triage API
- * @route GET /api/patients/:id/triage - Get triage records
- * @route POST /api/patients/:id/triage - Create triage record
+ * @system MediCore ERP - Patient Vitals API
+ * @route GET /api/patients/:id/vitals - Get vitals records
+ * @route POST /api/patients/:id/vitals - Create vitals record
  */
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
@@ -18,7 +18,7 @@ export async function GET(
 
     const { id } = await params;
 
-    const records = await prisma.triage.findMany({
+    const records = await prisma.vitals.findMany({
       where: { patientId: id },
       orderBy: { createdAt: "desc" },
       include: {
@@ -33,9 +33,9 @@ export async function GET(
 
     return NextResponse.json({ success: true, data: records });
   } catch (error) {
-    logger.api("GET", "/api/patients/[id]/triage", error);
+    logger.api("GET", "/api/patients/[id]/vitals", error);
     return NextResponse.json(
-      { success: false, error: "Failed to fetch triage records" },
+      { success: false, error: "Failed to fetch vitals records" },
       { status: 500 }
     );
   }
@@ -59,7 +59,7 @@ export async function POST(
       bmi = parseFloat((body.weight / (heightM * heightM)).toFixed(1));
     }
 
-    const record = await prisma.triage.create({
+    const record = await prisma.vitals.create({
       data: {
         patientId: id,
         appointmentId: body.appointmentId,
@@ -96,9 +96,9 @@ export async function POST(
       { status: 201 }
     );
   } catch (error) {
-    logger.api("POST", "/api/patients/[id]/triage", error);
+    logger.api("POST", "/api/patients/[id]/vitals", error);
     return NextResponse.json(
-      { success: false, error: "Failed to create triage record" },
+      { success: false, error: "Failed to create vitals record" },
       { status: 500 }
     );
   }

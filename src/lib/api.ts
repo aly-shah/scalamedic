@@ -73,7 +73,7 @@ export const api = {
     billing: (id: string) => apiFetch<unknown[]>(`/api/patients/${id}/billing`),
     labTests: (id: string) => apiFetch<unknown[]>(`/api/patients/${id}/lab-tests`),
     followUps: (id: string) => apiFetch<unknown[]>(`/api/patients/${id}/follow-ups`),
-    triage: (id: string) => apiFetch<unknown[]>(`/api/patients/${id}/triage`),
+    vitals: (id: string) => apiFetch<unknown[]>(`/api/patients/${id}/vitals`),
   },
 
   // Appointments

@@ -18,7 +18,7 @@ import { LoadingSpinner } from "@/components/ui/loading";
 import { SearchInput } from "@/components/ui/search-input";
 import { DatePicker } from "@/components/ui/date-picker";
 import {
-  usePatients, usePatient, useAppointments, usePatientTriage, usePatientNotes,
+  usePatients, usePatient, useAppointments, usePatientVitals, usePatientNotes,
   usePatientPrescriptions, useTreatments,
   useCreatePatientNote, useCreatePatientPrescription, useCreatePatientLabTest,
   useCreatePatientFollowUp, useUpdateAppointment,
@@ -28,7 +28,7 @@ import { useModuleAccess, useModuleEmit } from "@/modules/core/hooks";
 import { SystemEvents } from "@/modules/core/events";
 import { useAuth } from "@/lib/auth-context";
 import { cn, getClinicToday, toClinicDay, CLINIC_TZ, computeAge } from "@/lib/utils";
-import type { Patient, Appointment, Triage, PatientAllergy } from "@/types";
+import type { Patient, Appointment, Vitals, PatientAllergy } from "@/types";
 
 interface RxRow { id: string; medicineName: string; dosage: string; frequency: string; duration: string; instructions: string; }
 
@@ -80,9 +80,9 @@ export default function ConsultationPage() {
   const patientAppts = todayAppts.filter((a) => a.patientId === patientId);
   const linkedAppt = todayAppts.find((a) => a.id === appointmentId);
 
-  // Triage
-  const { data: triageRes } = usePatientTriage(patientId);
-  const vitals = ((triageRes?.data || []) as Triage[])[0];
+  // Vitals
+  const { data: vitalsRes } = usePatientVitals(patientId);
+  const vitals = ((vitalsRes?.data || []) as Vitals[])[0];
 
   // Patient history for autopopulation
   const { data: notesRes } = usePatientNotes(patientId);

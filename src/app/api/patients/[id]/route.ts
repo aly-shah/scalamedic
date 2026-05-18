@@ -180,7 +180,7 @@ export async function DELETE(
       const [
         invoiceCount, appointmentCount, prescriptionCount,
         labTestCount, consultationNoteCount, followUpCount,
-        roomAllocationCount, triageCount, waitlistCount, consentCount,
+        roomAllocationCount, vitalsCount, waitlistCount, consentCount,
       ] = await Promise.all([
         prisma.invoice.count({ where: { patientId: id } }),
         prisma.appointment.count({ where: { patientId: id } }),
@@ -189,7 +189,7 @@ export async function DELETE(
         prisma.consultationNote.count({ where: { patientId: id } }),
         prisma.followUp.count({ where: { patientId: id } }),
         prisma.roomAllocation.count({ where: { patientId: id } }),
-        prisma.triage.count({ where: { patientId: id } }),
+        prisma.vitals.count({ where: { patientId: id } }),
         prisma.waitlist.count({ where: { patientId: id } }),
         prisma.consentForm.count({ where: { patientId: id } }),
       ]);
@@ -202,7 +202,7 @@ export async function DELETE(
       if (consultationNoteCount) blockers.consultationNotes = consultationNoteCount;
       if (followUpCount)        blockers.followUps = followUpCount;
       if (roomAllocationCount)  blockers.roomAllocations = roomAllocationCount;
-      if (triageCount)          blockers.triages = triageCount;
+      if (vitalsCount)          blockers.vitals = vitalsCount;
       if (waitlistCount)        blockers.waitlists = waitlistCount;
       if (consentCount)         blockers.consentForms = consentCount;
 

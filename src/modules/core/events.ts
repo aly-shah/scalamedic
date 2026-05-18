@@ -231,7 +231,7 @@ export const SystemEvents = {
   ROOM_RELEASED: "rooms.released",
   ROOM_STATUS_CHANGED: "rooms.status_changed",
 
-  // Triage / Vitals
+  // Vitals
   VITALS_RECORDED: "vitals.recorded",
 
   // Lab

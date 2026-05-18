@@ -176,7 +176,7 @@ export const entityOwnership: EntityOwnership[] = [
   { entity: "PatientDocument", sourceModule: "MOD-DOCUMENTS", description: "Documents and files" },
   { entity: "AITranscription", sourceModule: "MOD-AI-TRANSCRIPTION", description: "AI transcripts and summaries" },
   { entity: "Notification", sourceModule: "MOD-NOTIFICATIONS", description: "User notifications" },
-  { entity: "Triage", sourceModule: "MOD-APPOINTMENT", description: "Vital signs / triage records" },
+  { entity: "Vitals", sourceModule: "MOD-APPOINTMENT", description: "Vital signs" },
   { entity: "User", sourceModule: "MOD-STAFF", description: "Staff profiles" },
   { entity: "Permission", sourceModule: "MOD-ADMIN", description: "Granular permissions" },
   { entity: "AuditLog", sourceModule: "MOD-ADMIN", description: "Audit trail" },

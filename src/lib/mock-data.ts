@@ -9,7 +9,7 @@ import {
   type Branch, type User, type Patient, type Appointment, type Treatment,
   type Invoice, type Payment, type Lead, type CallLog, type FollowUp,
   type Room, type ConsultationNote, type Prescription, type LabTest,
-  type Package, type Triage, type Notification, type AuditLog,
+  type Package, type Vitals, type Notification, type AuditLog,
   type AITranscription, type PatientDocument, type CommunicationLog,
   type SkinHistory, type MedicalHistory, type ActivityItem, type PatientPackage,
   type RoomAllocation,
@@ -211,8 +211,8 @@ export const mockLabTests: LabTest[] = [
   { id: "lt-005", patientId: "pt-015", patientName: "Lucas Jackson", doctorId: "usr-002", doctorName: "Dr. Emily Chen", testName: "Hormone Panel - Acne Related", status: LabTestStatus.COMPLETED, results: { testosterone: "Normal", dhea_s: "Slightly elevated", cortisol: "Normal" }, technician: "Lab Tech B", completedAt: "2026-04-03T14:00:00", createdAt: "2026-04-01" },
 ];
 
-// ---- Triage Records ----
-export const mockTriageRecords: Triage[] = [
+// ---- Vitals ----
+export const mockVitals: Vitals[] = [
   { id: "tri-001", patientId: "pt-005", patientName: "Ava Williams", appointmentId: "apt-003", temperature: 36.8, systolicBP: 120, diastolicBP: 80, heartRate: 72, respiratoryRate: 16, weight: 58, height: 165, oxygenSaturation: 98, bmi: "21.3", notes: "Patient appears healthy. No concerns.", urgencyLevel: "NORMAL", recordedById: "usr-008", recordedByName: "Rachel Green", createdAt: "2026-04-05T09:45:00" },
   { id: "tri-002", patientId: "pt-009", patientName: "Emma Wilson", appointmentId: "apt-004", temperature: 36.6, systolicBP: 115, diastolicBP: 75, heartRate: 68, weight: 62, height: 170, oxygenSaturation: 99, bmi: "21.5", notes: "Slight redness on cheeks - rosacea flare", skinObservations: "Papulopustular rosacea on bilateral cheeks, erythema extending to nose", urgencyLevel: "NORMAL", recordedById: "usr-008", recordedByName: "Rachel Green", createdAt: "2026-04-05T09:55:00" },
 ];

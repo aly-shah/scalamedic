@@ -36,7 +36,7 @@ const definition: ModuleDefinition = {
 
   ownedEntities: ["ConsultationNote", "LabTest"],
   dataConnections: [
-    { moduleId: "MOD-APPOINTMENT", entities: ["Appointment", "Triage"], direction: "IN", description: "Visit context and vitals" },
+    { moduleId: "MOD-APPOINTMENT", entities: ["Appointment", "Vitals"], direction: "IN", description: "Visit context and vitals" },
     { moduleId: "MOD-PATIENT", entities: ["Patient"], direction: "IN", description: "Patient demographics and allergies" },
     { moduleId: "MOD-MEDICAL-HISTORY", entities: ["MedicalHistory", "PatientAllergy"], direction: "BOTH", description: "Read history, write new diagnoses" },
     { moduleId: "MOD-SKIN-HISTORY", entities: ["SkinHistory"], direction: "BOTH", description: "Read/update skin conditions" },

@@ -6,7 +6,7 @@
  * Smart-glance dashboard for the patient profile. Surfaces:
  *
  *   - Top KPIs: last visit · next appointment · outstanding balance · active Rx
- *   - Quick vitals capture (inline form, POSTs to /api/patients/[id]/triage)
+ *   - Quick vitals capture (inline form, POSTs to /api/patients/[id]/vitals)
  *   - Recent invoices with print + open shortcuts
  *   - Active prescriptions
  *   - Recent visits
@@ -29,20 +29,20 @@ import { LoadingSpinner } from "@/components/ui/loading";
 import {
   usePatientAppointments,
   usePatientPrescriptions,
-  usePatientTriage,
+  usePatientVitals,
   usePatientBilling,
   queryKeys,
 } from "@/hooks/use-queries";
 import { formatDate } from "@/lib/utils";
 import { useFormatCurrency } from "@/hooks/use-format-currency";
 import { useAuth } from "@/lib/auth-context";
-import type { Patient, Appointment, Prescription, Triage, Invoice } from "@/types";
+import type { Patient, Appointment, Prescription, Vitals, Invoice } from "@/types";
 
 const fmtDate = (d?: string) => (d ? formatDate(d) : "—");
 
 export function OverviewTab({ patient }: { patient: Patient }) {
   const formatCurrency = useFormatCurrency();
-  const { data: triageRes,    isLoading: tLoad } = usePatientTriage(patient.id);
+  const { data: vitalsRes,    isLoading: tLoad } = usePatientVitals(patient.id);
   const { data: apptRes,      isLoading: aLoad } = usePatientAppointments(patient.id);
   const { data: rxRes,        isLoading: rLoad } = usePatientPrescriptions(patient.id);
   const { data: billingRes,   isLoading: bLoad } = usePatientBilling(patient.id);
@@ -51,8 +51,8 @@ export function OverviewTab({ patient }: { patient: Patient }) {
     return <div className="flex justify-center py-10"><LoadingSpinner /></div>;
   }
 
-  const triageRecords = (triageRes?.data || []) as Triage[];
-  const triage = triageRecords[0] || null;
+  const vitalsRecords = (vitalsRes?.data || []) as Vitals[];
+  const latestVitals = vitalsRecords[0] || null;
 
   const appointments = ((apptRes?.data || []) as Appointment[])
     .slice()
@@ -117,18 +117,18 @@ export function OverviewTab({ patient }: { patient: Patient }) {
             <div className="flex items-center gap-2 mb-3">
               <Heart className="w-4 h-4 text-red-500" />
               <h3 className="text-sm font-semibold text-stone-900">Last vitals</h3>
-              {triage?.createdAt && (
-                <span className="ml-auto text-[11px] text-stone-400">{formatDate(triage.createdAt)}</span>
+              {latestVitals?.createdAt && (
+                <span className="ml-auto text-[11px] text-stone-400">{formatDate(latestVitals.createdAt)}</span>
               )}
             </div>
-            {triage ? (
+            {latestVitals ? (
               <dl className="space-y-1.5 text-sm">
-                <VitalRow label="Blood pressure" value={triage.systolicBP && triage.diastolicBP ? `${triage.systolicBP}/${triage.diastolicBP} mmHg` : "—"} />
-                <VitalRow label="Heart rate" value={triage.heartRate ? `${triage.heartRate} bpm` : "—"} />
-                <VitalRow label="Temperature" value={triage.temperature ? `${triage.temperature} °C` : "—"} />
-                <VitalRow label="Weight" value={triage.weight ? `${triage.weight} kg` : "—"} />
-                <VitalRow label="BMI" value={triage.bmi ? String(triage.bmi) : "—"} />
-                <VitalRow label="O₂ Sat" value={triage.oxygenSaturation ? `${triage.oxygenSaturation}%` : "—"} />
+                <VitalRow label="Blood pressure" value={latestVitals.systolicBP && latestVitals.diastolicBP ? `${latestVitals.systolicBP}/${latestVitals.diastolicBP} mmHg` : "—"} />
+                <VitalRow label="Heart rate" value={latestVitals.heartRate ? `${latestVitals.heartRate} bpm` : "—"} />
+                <VitalRow label="Temperature" value={latestVitals.temperature ? `${latestVitals.temperature} °C` : "—"} />
+                <VitalRow label="Weight" value={latestVitals.weight ? `${latestVitals.weight} kg` : "—"} />
+                <VitalRow label="BMI" value={latestVitals.bmi ? String(latestVitals.bmi) : "—"} />
+                <VitalRow label="O₂ Sat" value={latestVitals.oxygenSaturation ? `${latestVitals.oxygenSaturation}%` : "—"} />
               </dl>
             ) : (
               <p className="text-sm text-stone-400 italic">No vitals recorded yet.</p>
@@ -297,7 +297,7 @@ function VitalRow({ label, value }: { label: string; value: string }) {
 }
 
 /** Inline vitals capture form. Posts to the existing
- *  /api/patients/[id]/triage endpoint and refetches the triage
+ *  /api/patients/[id]/vitals endpoint and refetches the vitals
  *  query so the "Last vitals" tile next to it updates instantly. */
 function QuickVitalsCard({ patientId, className }: { patientId: string; className?: string }) {
   const { user } = useAuth();
@@ -335,7 +335,7 @@ function QuickVitalsCard({ patientId, className }: { patientId: string; classNam
     }
     setSubmitting(true);
     try {
-      const r = await fetch(`/api/patients/${patientId}/triage`, {
+      const r = await fetch(`/api/patients/${patientId}/vitals`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -359,7 +359,7 @@ function QuickVitalsCard({ patientId, className }: { patientId: string; classNam
       }
       setSuccess(true);
       reset();
-      qc.invalidateQueries({ queryKey: queryKeys.patients.triage(patientId) });
+      qc.invalidateQueries({ queryKey: queryKeys.patients.vitals(patientId) });
       setTimeout(() => setSuccess(false), 2500);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Save failed");

@@ -96,7 +96,7 @@ export default function VitalsPage() {
       {/* Header with patient name */}
       <div>
         <h1 className="text-xl sm:text-2xl font-semibold text-stone-900">
-          Vitals & Triage
+          Vitals
         </h1>
         {selectedPatient ? (
           <div className="flex items-center gap-3 mt-2">

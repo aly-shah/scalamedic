@@ -134,11 +134,11 @@ async function main() {
     });
   }
 
-  // ---- 6. Triage Records ----
-  console.log("  6/22 Triage records...");
+  // ---- 6. Vitals ----
+  console.log("  6/22 Vitals...");
   for (let i = 0; i < Math.min(appointments.length, 6); i++) {
     const apt = appointments[i];
-    await prisma.triage.create({
+    await prisma.vitals.create({
       data: {
         patientId: apt.patientId, appointmentId: apt.id,
         temperature: 36.4 + Math.random() * 0.8, temperatureUnit: "C",
@@ -424,7 +424,7 @@ async function main() {
     { userId: callCenterUser.id, action: "CREATE", module: "CALL_CENTER", entityType: "Lead", entityId: "LD-001", details: "New lead: Rebecca Stone — interested in acne treatment" },
     { userId: receptionist.id, action: "UPDATE", module: "APPOINTMENT", entityType: "Appointment", entityId: "APT-0004", details: "Checked in Emma Wilson at 09:52" },
     { userId: doctors[1].id, action: "CREATE", module: "PROCEDURE", entityType: "Procedure", entityId: "PRC-001", details: "Performed CO2 Laser session 3 for Ethan Brooks" },
-    { userId: assistant.id, action: "CREATE", module: "TRIAGE", entityType: "Triage", entityId: "TRI-001", details: "Recorded vitals for Ava Williams" },
+    { userId: assistant.id, action: "CREATE", module: "VITALS", entityType: "Vitals", entityId: "TRI-001", details: "Recorded vitals for Ava Williams" },
     { userId: adminUser.id, action: "UPDATE", module: "ADMIN", entityType: "SystemSetting", entityId: "tax_rate", details: "Updated tax rate from 5% to 7%" },
   ];
   for (const a of auditEntries) {
@@ -511,7 +511,7 @@ async function printSummary() {
     ["prescriptions", prisma.prescription],
     ["prescription_items", prisma.prescriptionItem],
     ["lab_tests", prisma.labTest],
-    ["triage_records", prisma.triage],
+    ["vitals", prisma.vitals],
     ["patient_documents", prisma.patientDocument],
     ["invoices", prisma.invoice],
     ["payments", prisma.payment],

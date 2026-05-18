@@ -63,12 +63,12 @@ export function AppointmentDetail({ appointment, onClose }: AppointmentDetailPro
     prescriptions?: Record<string, unknown>[];
     labTests?: Record<string, unknown>[];
     followUps?: Record<string, unknown>[];
-    triageRecords?: Record<string, unknown>[];
+    vitals?: Record<string, unknown>[];
     invoices?: Array<{ id: string; invoiceNumber?: string }>;
   };
 
   const patient = fullAppt.patient as Record<string, unknown> | undefined;
-  const triage = (fullAppt.triageRecords || [])[0] as Record<string, unknown> | undefined;
+  const latestVitals = (fullAppt.vitals || [])[0] as Record<string, unknown> | undefined;
   const notes = (fullAppt.consultationNotes || []) as Record<string, unknown>[];
   const procedures = (fullAppt.procedures || []) as Record<string, unknown>[];
   const prescriptions = (fullAppt.prescriptions || []) as Record<string, unknown>[];
@@ -258,19 +258,19 @@ export function AppointmentDetail({ appointment, onClose }: AppointmentDetailPro
           </div>
 
           {/* Vitals */}
-          {triage && (
+          {latestVitals && (
             <div className="bg-white rounded-2xl border border-stone-200/70 shadow-sm p-4 sm:p-5">
               <h3 className="text-xs font-semibold text-stone-400 uppercase tracking-wider mb-4">Vitals</h3>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {triage.temperature != null && <VitalBox label="Temp" value={`${String(triage.temperature)} C`} />}
-                {triage.systolicBP != null && triage.diastolicBP != null && <VitalBox label="BP" value={`${String(triage.systolicBP)}/${String(triage.diastolicBP)}`} />}
-                {triage.heartRate != null && <VitalBox label="HR" value={`${String(triage.heartRate)} bpm`} />}
-                {triage.weight != null && <VitalBox label="Weight" value={`${String(triage.weight)} kg`} />}
-                {triage.oxygenSaturation != null && <VitalBox label="SpO2" value={`${String(triage.oxygenSaturation)}%`} />}
-                {triage.bmi != null && <VitalBox label="BMI" value={String(triage.bmi)} />}
+                {latestVitals.temperature != null && <VitalBox label="Temp" value={`${String(latestVitals.temperature)} C`} />}
+                {latestVitals.systolicBP != null && latestVitals.diastolicBP != null && <VitalBox label="BP" value={`${String(latestVitals.systolicBP)}/${String(latestVitals.diastolicBP)}`} />}
+                {latestVitals.heartRate != null && <VitalBox label="HR" value={`${String(latestVitals.heartRate)} bpm`} />}
+                {latestVitals.weight != null && <VitalBox label="Weight" value={`${String(latestVitals.weight)} kg`} />}
+                {latestVitals.oxygenSaturation != null && <VitalBox label="SpO2" value={`${String(latestVitals.oxygenSaturation)}%`} />}
+                {latestVitals.bmi != null && <VitalBox label="BMI" value={String(latestVitals.bmi)} />}
               </div>
-              {triage.skinObservations != null && (
-                <p className="mt-3 text-xs text-amber-700 bg-amber-50 rounded-xl p-3 border border-amber-100">{String(triage.skinObservations)}</p>
+              {latestVitals.skinObservations != null && (
+                <p className="mt-3 text-xs text-amber-700 bg-amber-50 rounded-xl p-3 border border-amber-100">{String(latestVitals.skinObservations)}</p>
               )}
             </div>
           )}

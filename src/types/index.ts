@@ -584,7 +584,7 @@ export interface Notification {
   createdAt: string;
 }
 
-export interface Triage {
+export interface Vitals {
   id: string;
   patientId: string;
   patientName?: string;

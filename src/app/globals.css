@@ -145,7 +145,7 @@ button, a, input, select, textarea { transition: all var(--duration-normal) ease
   grid-template-columns: minmax(0, 1fr) minmax(320px, 28%);
   gap: var(--section-gap);
 }
-.content-grid-triage {
+.content-grid-vitals {
   display: grid;
   grid-template-columns: minmax(260px, 20%) minmax(0, 1fr) minmax(280px, 22%);
   gap: var(--section-gap);
@@ -153,7 +153,7 @@ button, a, input, select, textarea { transition: all var(--duration-normal) ease
 @media (max-width: 1023px) {
   .content-grid-split-start,
   .content-grid-split-end,
-  .content-grid-triage {
+  .content-grid-vitals {
     grid-template-columns: 1fr;
   }
 }

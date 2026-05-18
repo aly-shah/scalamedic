@@ -599,7 +599,7 @@ model User {
   followUps           FollowUp[]         @relation("DoctorFollowUps")
   transcriptions      AITranscription[]
   notifications       Notification[]
-  triageRecords       Triage[]
+  vitalsRecorded      Vitals[]
   schedules           DoctorSchedule[]
   refundsApproved     Refund[]           @relation("RefundsApproved")
   refundsProcessed    Refund[]           @relation("RefundsProcessed")
@@ -753,7 +753,7 @@ model Patient {
   followUps         FollowUp[]
   transcriptions    AITranscription[]
   aiSuggestions     AISuggestion[]      @relation("AISuggestionPatient")
-  triageRecords     Triage[]
+  vitals            Vitals[]
   callLogs          CallLog[]
   convertedLeads    Lead[]
   consentForms      ConsentForm[]
@@ -1033,7 +1033,7 @@ model Appointment {
   followUps         FollowUp[]
   transcriptions    AITranscription[]
   aiSuggestions     AISuggestion[]      @relation("AISuggestionAppointment")
-  triageRecords     Triage[]
+  vitals            Vitals[]
   consentForms      ConsentForm[]
   waitlistBookings  Waitlist[]
   qrTokens          QrToken[]
@@ -2044,9 +2044,12 @@ model Notification {
   @@map("notifications")
 }
 
-// ---- Triage / Vitals ----
+// ---- Vitals ----
+// (Renamed from Triage in v66. The table stores patient vitals —
+// BP, pulse, temperature, weight, BMI, SpO₂, urgency flag — the
+// "triage" label was a misnomer from an early prototype.)
 
-model Triage {
+model Vitals {
   id               String       @id @default(uuid()) @db.Uuid
   patientId        String       @db.Uuid
   patient          Patient      @relation(fields: [patientId], references: [id], onDelete: Restrict)
@@ -2076,10 +2079,10 @@ model Triage {
   @@index([patientId])
   @@index([appointmentId])
   @@index([recordedById])
-  @@index([patientId, createdAt(sort: Desc)]) // patient triage timeline
-  @@index([urgencyLevel]) // urgent-triage queue sort
-  @@index([recordedById, createdAt(sort: Desc)]) // "my recorded triages"
-  @@map("triage_records")
+  @@index([patientId, createdAt(sort: Desc)]) // patient vitals timeline
+  @@index([urgencyLevel]) // urgent-vitals queue sort
+  @@index([recordedById, createdAt(sort: Desc)]) // "my recorded vitals"
+  @@map("vitals")
 }
 
 // ---- Doctor Scheduling ----

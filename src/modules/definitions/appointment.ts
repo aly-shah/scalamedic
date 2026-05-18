@@ -24,7 +24,7 @@ const definition: ModuleDefinition = {
     { id: "APPOINTMENT-CHECKIN", label: "Check-In", description: "Patient arrival and check-in flow" },
     { id: "APPOINTMENT-QUEUE", label: "Waiting Queue", description: "Real-time waiting room status" },
     { id: "APPOINTMENT-DETAIL", label: "Appointment Detail", description: "Full appointment view with workflow" },
-    { id: "APPOINTMENT-TRIAGE", label: "Vitals / Triage", description: "Record vitals at check-in" },
+    { id: "APPOINTMENT-TRIAGE", label: "Vitals", description: "Record vitals at check-in" },
   ],
 
   actions: [
@@ -34,10 +34,10 @@ const definition: ModuleDefinition = {
     { id: "APPOINTMENT-COMPLETE", label: "Complete Visit", permission: "EDIT", emitsEvent: "appointment.completed", description: "Mark visit as complete" },
     { id: "APPOINTMENT-CANCEL", label: "Cancel", permission: "DELETE", emitsEvent: "appointment.cancelled", description: "Cancel appointment" },
     { id: "APPOINTMENT-RESCHEDULE", label: "Reschedule", permission: "EDIT", emitsEvent: "appointment.rescheduled", description: "Reschedule appointment" },
-    { id: "APPOINTMENT-RECORD-VITALS", label: "Record Vitals", permission: "EDIT", emitsEvent: "vitals.recorded", description: "Record triage vitals" },
+    { id: "APPOINTMENT-RECORD-VITALS", label: "Record Vitals", permission: "EDIT", emitsEvent: "vitals.recorded", description: "Record vitals" },
   ],
 
-  ownedEntities: ["Appointment", "Triage", "Waitlist"],
+  ownedEntities: ["Appointment", "Vitals", "Waitlist"],
   dataConnections: [
     { moduleId: "MOD-PATIENT", entities: ["Patient"], direction: "IN", description: "Patient info for scheduling" },
     { moduleId: "MOD-STAFF", entities: ["User", "DoctorSchedule"], direction: "IN", description: "Doctor availability" },

@@ -481,7 +481,7 @@ async function wipeDemoTenantData(tenantId: string): Promise<void> {
       await tx.aISuggestion.deleteMany({ where: { patientId: { in: patientIds } } });
       await tx.communicationLog.deleteMany({ where: { patientId: { in: patientIds } } });
       await tx.callLog.deleteMany({ where: { patientId: { in: patientIds } } });
-      await tx.triage.deleteMany({ where: { patientId: { in: patientIds } } });
+      await tx.vitals.deleteMany({ where: { patientId: { in: patientIds } } });
       await tx.consentForm.deleteMany({ where: { patientId: { in: patientIds } } });
       await tx.waitlist.deleteMany({ where: { patientId: { in: patientIds } } });
       await tx.roomAllocation.deleteMany({ where: { patientId: { in: patientIds } } });

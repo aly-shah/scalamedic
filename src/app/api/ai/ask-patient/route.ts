@@ -92,7 +92,7 @@ export async function POST(request: Request) {
             createdAt: true,
           },
         },
-        triageRecords: {
+        vitals: {
           orderBy: { createdAt: "desc" },
           take: 1,
           select: {
@@ -159,17 +159,17 @@ export async function POST(request: Request) {
         test: l.testName,
         status: l.status,
       })),
-      lastVitals: patient.triageRecords[0]
+      lastVitals: patient.vitals[0]
         ? {
-            date: fmtDate(patient.triageRecords[0].createdAt),
-            tempC: patient.triageRecords[0].temperature,
+            date: fmtDate(patient.vitals[0].createdAt),
+            tempC: patient.vitals[0].temperature,
             bp:
-              patient.triageRecords[0].systolicBP &&
-              patient.triageRecords[0].diastolicBP
-                ? `${patient.triageRecords[0].systolicBP}/${patient.triageRecords[0].diastolicBP}`
+              patient.vitals[0].systolicBP &&
+              patient.vitals[0].diastolicBP
+                ? `${patient.vitals[0].systolicBP}/${patient.vitals[0].diastolicBP}`
                 : null,
-            hr: patient.triageRecords[0].heartRate,
-            bmi: patient.triageRecords[0].bmi,
+            hr: patient.vitals[0].heartRate,
+            bmi: patient.vitals[0].bmi,
           }
         : null,
     };

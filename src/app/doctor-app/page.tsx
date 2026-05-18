@@ -1002,7 +1002,7 @@ export default function DoctorApp() {
     setBriefing(null);
     const [pRes, vRes, nRes, aRes, rxRes, phRes, procRes, labRes, skinRes, briefingRes] = await Promise.all([
       api<PatientInfo>(`/api/patients/${patientId}`),
-      api<VitalsInfo[]>(`/api/patients/${patientId}/triage`),
+      api<VitalsInfo[]>(`/api/patients/${patientId}/vitals`),
       api<NoteInfo[]>(`/api/patients/${patientId}/notes?limit=5`),
       api<AppointmentInfo[]>(`/api/patients/${patientId}/appointments?limit=10`),
       api<RxInfo[]>(`/api/patients/${patientId}/prescriptions`),
@@ -1016,7 +1016,7 @@ export default function DoctorApp() {
     if (pRes.success && pRes.data) setSelectedPatient(pRes.data);
     const vArr = Array.isArray(vRes.data) ? (vRes.data as VitalsInfo[]) : [];
     setVitals(vArr.length > 0 ? vArr[0] : null);
-    // The triage endpoint returns DESC by createdAt; reverse for
+    // The vitals endpoint returns DESC by createdAt; reverse for
     // the sparkline (oldest → newest) and cap at the most recent
     // 12 readings so the chart density stays readable.
     setVitalsHistory(vArr.slice(0, 12).slice().reverse());

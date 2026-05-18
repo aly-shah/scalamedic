@@ -57,6 +57,15 @@ enum AppointmentType {
   EMERGENCY
 }
 
+// v63: where the appointment was booked from. Drives reporting +
+// the /admin/updates inbox filter on "show only website bookings".
+enum AppointmentSource {
+  STAFF           // receptionist or admin via the dashboard
+  WEBSITE         // public /book wizard
+  API             // service-account / external system integration
+  PATIENT_PORTAL  // patient self-service via /portal
+}
+
 enum AppointmentStatus {
   SCHEDULED
   CONFIRMED
@@ -462,6 +471,7 @@ model Tenant {
   patients        Patient[]
   appointments    Appointment[]
   invoices        Invoice[]
+  codeCounters    TenantCodeCounter[]
   insuranceClaims InsuranceClaim[]
   payers          Payer[]
   denialReasons   DenialReason[]
@@ -498,6 +508,27 @@ model TenantHostname {
 
   @@index([tenantId])
   @@map("tenant_hostnames")
+}
+
+// v65: per-tenant code counters for race-safe sequence generation
+// (PT-NNNN, APT-NNNN, INV-YYYY-NNNN, CLM-YYYY-NNNN, …). The
+// MAX(code)+1 pattern across the codebase is correct under single-
+// writer load but collides under concurrent inserts. The helper at
+// src/lib/tenant-codes.ts:nextCode() uses an INSERT … ON CONFLICT
+// DO UPDATE … RETURNING against this table, which is atomic at the
+// row level. codePrefix carries the year for date-rolled series
+// (e.g. "INV-2026") so the rollover on 1 Jan is automatic — a fresh
+// row gets created for the new year and starts at 1.
+model TenantCodeCounter {
+  tenantId   String   @db.Uuid
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  codePrefix String   @db.VarChar(8)
+  nextNumber Int
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@id([tenantId, codePrefix])
+  @@map("tenant_code_counters")
 }
 
 // ---- Auth & Access ----
@@ -552,6 +583,7 @@ model User {
   assignedPatients    Patient[]          @relation("AssignedDoctor")
   doctorAppointments  Appointment[]      @relation("DoctorAppointments")
   createdAppointments Appointment[]      @relation("CreatedAppointments")
+  cancelledAppointments Appointment[]    @relation("AppointmentCancelledBy")
   consultationNotes   ConsultationNote[]
   procedures          Procedure[]
   prescriptions       Prescription[]
@@ -976,7 +1008,18 @@ model Appointment {
   checkinTime      DateTime?         @db.Timestamptz(6)
   checkoutTime     DateTime?         @db.Timestamptz(6)
   workflowStage    WorkflowStage     @default(BOOKED)
+  // v63: where this booking came from. STAFF for receptionist-
+  // created rows (the default), WEBSITE for public /book wizard,
+  // API for service-account integrations, PATIENT_PORTAL for self-
+  // service rebooks from /portal.
+  source           AppointmentSource @default(STAFF)
   cancellationNote String?           @db.Text
+  // v64: who/when of the cancellation. Both nullable for historical
+  // rows whose status pre-dated these columns. CHECK constraint in
+  // the v64 migration enforces cancelledAt → status='CANCELLED'.
+  cancelledAt      DateTime?         @db.Timestamptz(6)
+  cancelledById    String?           @db.Uuid
+  cancelledBy      User?             @relation("AppointmentCancelledBy", fields: [cancelledById], references: [id], onDelete: SetNull)
   createdById      String            @db.Uuid
   createdBy        User              @relation("CreatedAppointments", fields: [createdById], references: [id], onDelete: Restrict)
   createdAt        DateTime          @default(now())

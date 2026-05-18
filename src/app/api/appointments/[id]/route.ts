@@ -141,6 +141,14 @@ export async function PUT(
         ...(body.priority && { priority: body.priority }),
         ...(body.workflowStage && { workflowStage: body.workflowStage }),
         ...(body.cancellationNote && { cancellationNote: body.cancellationNote }),
+        // v64: stamp cancelledAt + cancelledById when this update is
+        // the transition into CANCELLED. CHECK constraint requires
+        // status='CANCELLED' before cancelledAt is non-null, so
+        // gate on body.status here.
+        ...(body.status === "CANCELLED" && existing.status !== "CANCELLED" && {
+          cancelledAt: new Date(),
+          cancelledById: auth.user.id,
+        }),
       },
       include: {
         patient: { select: { id: true, firstName: true, lastName: true, patientCode: true } },
@@ -196,7 +204,11 @@ export async function DELETE(
 
     const appointment = await prisma.appointment.update({
       where: { id },
-      data: { status: "CANCELLED" },
+      data: {
+        status: "CANCELLED",
+        cancelledAt: new Date(),          // v64
+        cancelledById: auth.user.id,      // v64
+      },
     });
 
     // Free the room if no other active appointments still hold it.

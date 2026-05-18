@@ -31,6 +31,7 @@ import { tenantIdForHostname } from "@/lib/tenant";
 import { checkRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import { logAudit } from "@/lib/audit";
 import { logger } from "@/lib/logger";
+import { nextCode } from "@/lib/tenant-codes";
 
 function clientIp(request: Request): string {
   const xff = request.headers.get("x-forwarded-for");
@@ -161,16 +162,10 @@ export async function POST(request: Request) {
       });
 
       if (!patient) {
-        // Generate next patient code (per-tenant MAX+1).
-        const lastPatient = await tx.patient.findFirst({
-          where: { tenantId, patientCode: { startsWith: "PT-" } },
-          orderBy: { patientCode: "desc" },
-          select: { patientCode: true },
-        });
-        const lastNum = lastPatient
-          ? parseInt(lastPatient.patientCode.replace("PT-", ""), 10)
-          : 0;
-        const patientCode = `PT-${pad(lastNum + 1, 4)}`;
+        // v65: race-safe per-tenant code via tenant_code_counters
+        // (was MAX(patientCode) + 1 — correct under single-writer
+        // load but collides under concurrent inserts).
+        const patientCode = await nextCode(tx, tenantId, "PT");
 
         patient = await tx.patient.create({
           data: {
@@ -192,16 +187,8 @@ export async function POST(request: Request) {
         });
       }
 
-      // Generate next appointment code.
-      const lastApt = await tx.appointment.findFirst({
-        where: { tenantId, appointmentCode: { startsWith: "APT-" } },
-        orderBy: { appointmentCode: "desc" },
-        select: { appointmentCode: true },
-      });
-      const lastAptNum = lastApt
-        ? parseInt(lastApt.appointmentCode.replace("APT-", ""), 10)
-        : 0;
-      const appointmentCode = `APT-${pad(lastAptNum + 1, 4)}`;
+      // v65: race-safe appointment code via tenant_code_counters.
+      const appointmentCode = await nextCode(tx, tenantId, "APT");
 
       const appt = await tx.appointment.create({
         data: {
@@ -217,7 +204,8 @@ export async function POST(request: Request) {
           type: "CONSULTATION",
           status: "SCHEDULED",
           workflowStage: "BOOKED",
-          notes: v.reason ? `Reason (public booking): ${v.reason}` : null,
+          source: "WEBSITE",                                      // v63
+          notes: v.reason ? v.reason : null,                      // raw reason; source column tells you where it came from
           createdById: doctor.id,
         },
         select: {
